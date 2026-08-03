@@ -173,6 +173,11 @@ KhaenAudioProcessor::KhaenAudioProcessor()
     m_pReverbMix       = m_apvts.getRawParameterValue("reverbMix");
     m_pReverbPreset    = m_apvts.getRawParameterValue("reverbPreset");
     m_pReverbBypass    = m_apvts.getRawParameterValue("reverbBypass");
+
+    // Initialize MIDI CC Manager & load default / standard mappings
+    m_midiCCManager.setAPVTS(&m_apvts);
+    if (!m_midiCCManager.loadGlobalDefault())
+        m_midiCCManager.applyStandardMidiCC();
 }
 
 KhaenAudioProcessor::~KhaenAudioProcessor() {}
@@ -305,10 +310,11 @@ void KhaenAudioProcessor::syncParameters()
 //==============================================================================
 void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    if (buffer.getNumChannels() == 0 || buffer.getNumSamples() == 0)
-        return;
-
     juce::ScopedNoDenormals noDenormals;
+
+    // ── MIDI Activity Flag & Filtered Buffer ──────────────────────────────────
+    if (!midiMessages.isEmpty())
+        m_midiActivity.store(1, std::memory_order_relaxed);
 
     juce::MidiBuffer synthMidi;
 
@@ -373,16 +379,25 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                         m_heldBassNoteCount = std::max(0, m_heldBassNoteCount - 1);
                 }
             }
+            m_midiActivity.store(1, std::memory_order_relaxed);
             synthMidi.addEvent(msg, sampleOffset);
         }
         else if (msg.isAllNotesOff() || msg.isAllSoundOff())
         {
             m_heldNotes.fill(false);
             m_heldBassNoteCount = 0;
+            m_midiActivity.store(1, std::memory_order_relaxed);
+            synthMidi.addEvent(msg, sampleOffset);
+        }
+        else if (msg.isController())
+        {
+            m_midiCCManager.handleMidiCC(msg.getChannel(), msg.getControllerNumber(), static_cast<float>(msg.getControllerValue()));
+            m_midiActivity.store(1, std::memory_order_relaxed);
             synthMidi.addEvent(msg, sampleOffset);
         }
         else
         {
+            m_midiActivity.store(1, std::memory_order_relaxed);
             synthMidi.addEvent(msg, sampleOffset);
         }
     }
@@ -404,6 +419,9 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     // Sync all parameters (cheap atomic reads)
     syncParameters();
+
+    if (buffer.getNumChannels() == 0 || buffer.getNumSamples() == 0)
+        return;
 
     buffer.clear();
 
@@ -472,7 +490,11 @@ void KhaenAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     // Store current preset index
     state.setProperty("currentPreset", m_presetManager.getCurrentPresetIndex(), nullptr);
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);
+    if (xml != nullptr)
+    {
+        m_midiCCManager.saveToXml(*xml);
+        copyXmlToBinary(*xml, destData);
+    }
 }
 
 void KhaenAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -480,6 +502,7 @@ void KhaenAudioProcessor::setStateInformation (const void* data, int sizeInBytes
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState && xmlState->hasTagName(m_apvts.state.getType()))
     {
+        m_midiCCManager.loadFromXml(*xmlState);
         auto newState = juce::ValueTree::fromXml(*xmlState);
         m_apvts.replaceState(newState);
     }

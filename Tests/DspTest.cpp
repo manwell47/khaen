@@ -480,17 +480,80 @@ int main()
 
     std::cout << "  Articulation & Vocal Tract Matrix: " << (artPass ? "[PASS]" : "[FAIL]") << std::endl;
 
-    // 10. Preset Loading: Classic Khaen
+    // 10. MIDI CC Routing, Standard MIDI Mapping & MIDI Learn Verification
+    std::cout << "\n--- MIDI CC Routing & MIDI Learn Verification ---" << std::endl;
+    auto& midiMgr = processor.getMidiCCManager();
+    midiMgr.applyStandardMidiCC();
+
+    bool midiCcPass = true;
+
+    // Test 10a: Standard MIDI Expression (CC 11) -> Air Macro (macroAir)
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 11, 96), 0);
+    buffer.clear();
+    processor.processBlock(buffer, midi);
+
+    float airVal = *processor.getAPVTS().getRawParameterValue("macroAir");
+    float expectedAir = 96.0f / 127.0f;
+    bool airPass = std::abs(airVal - expectedAir) < 0.02f;
+    std::cout << "  Standard CC 11 (Expression) -> macroAir value: " << airVal << " (expect ~" << expectedAir << "): "
+              << (airPass ? "[PASS]" : "[FAIL]") << std::endl;
+    if (!airPass) midiCcPass = false;
+
+    // Test 10b: Standard MIDI Delay Send (CC 93) -> Delay Mix (delayMix)
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 93, 127), 0);
+    buffer.clear();
+    processor.processBlock(buffer, midi);
+
+    float delMixVal = *processor.getAPVTS().getRawParameterValue("delayMix");
+    bool delMixPass = std::abs(delMixVal - 1.0f) < 0.02f;
+    std::cout << "  Standard CC 93 (Delay Send) -> delayMix value: " << delMixVal << " (expect 1.0): "
+              << (delMixPass ? "[PASS]" : "[FAIL]") << std::endl;
+    if (!delMixPass) midiCcPass = false;
+
+    // Test 10c: MIDI Learn mode for Reverb Mix -> Send CC 44
+    midiMgr.startLearning("reverbMix");
+    bool isLearningActive = midiMgr.isLearningParam("reverbMix");
+    std::cout << "  MIDI Learn Started for reverbMix -> isLearning: " << (isLearningActive ? "TRUE" : "FALSE") << std::endl;
+
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 44, 80), 0);
+    buffer.clear();
+    processor.processBlock(buffer, midi);
+
+    int mappedCC = midiMgr.getCCForParam("reverbMix");
+    float revMixVal = *processor.getAPVTS().getRawParameterValue("reverbMix");
+    float expectedRev = 80.0f / 127.0f;
+    bool learnPass = (mappedCC == 44) && (!midiMgr.isLearning()) && (std::abs(revMixVal - expectedRev) < 0.02f);
+    std::cout << "  MIDI Learn Completed -> mappedCC: " << mappedCC << " (expect 44) | revMix: " << revMixVal
+              << " | isLearning: " << (midiMgr.isLearning() ? "TRUE" : "FALSE") << " -> "
+              << (learnPass ? "[PASS]" : "[FAIL]") << std::endl;
+    if (!learnPass) midiCcPass = false;
+
+    // Test 10d: XML Persistence of MIDI mappings
+    juce::MemoryBlock stateBlock;
+    processor.getStateInformation(stateBlock);
+    midiMgr.clearAll();
+    bool clearedPass = (midiMgr.getCCForParam("reverbMix") == -1);
+    processor.setStateInformation(stateBlock.getData(), static_cast<int>(stateBlock.getSize()));
+    bool restoredPass = (midiMgr.getCCForParam("reverbMix") == 44 && midiMgr.getCCForParam("macroAir") == 70);
+    std::cout << "  State Serialization & Restoration -> Cleared: " << (clearedPass ? "YES" : "NO")
+              << " | Restored: " << (restoredPass ? "[PASS]" : "[FAIL]") << std::endl;
+    if (!restoredPass) midiCcPass = false;
+
+    // 11. Preset Loading: Classic Khaen
     std::cout << "\n--- Preset Loading: Classic Khaen ---" << std::endl;
     processor.loadPreset(0); // Classic Khaen
     std::cout << "  Loaded Preset 0: " << processor.getPresetManager().getPreset(0).name.toStdString() << std::endl;
 
     bool allTestsPass = pitchRangePass && tuningPass && midiFired && chordPass && delayPass 
-                        && nonZeroVisSamples > 0 && releasedRms < 0.005f && bypassPass && breathPass && bassSuctionPass && autoRiffPass && reverbPresetsPass && keyswitchPass && artPass;
+                        && nonZeroVisSamples > 0 && releasedRms < 0.005f && bypassPass && breathPass && bassSuctionPass 
+                        && autoRiffPass && reverbPresetsPass && keyswitchPass && artPass && midiCcPass;
 
     if (allTestsPass)
     {
-        std::cout << "\n>>> ALL AUDIO, TAPE DELAY, BYPASS & BREATH TESTS PASSED! Generating UI snapshots... <<<" << std::endl;
+        std::cout << "\n>>> ALL AUDIO, TAPE DELAY, BYPASS, BREATH & MIDI CC TESTS PASSED! Generating UI snapshots... <<<" << std::endl;
         
         std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
         if (auto* khaenEditor = dynamic_cast<KhaenEditor*>(editor.get()))
@@ -520,6 +583,7 @@ int main()
 
                 writePng(juce::File("c:/APPs/Khaen/" + repoFilename));
                 writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/fbc3a685-9415-4985-9286-8ca576a7382c/" + brainFilename));
+                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/e30c6d66-b020-45af-b20a-31bf03030328/" + brainFilename));
             };
 
             saveSnapshot(0, "khaen_vst_delay.png",        "media_ui_delay_tab.png");
@@ -529,6 +593,30 @@ int main()
 
             // Also save default main GUI snapshot
             saveSnapshot(0, "khaen_vst_gui.png",          "media_ui_gui_main.png");
+
+            // Open MIDI Mapping Matrix overlay & take snapshot
+            khaenEditor->toggleMidiMappingDialog();
+            {
+                juce::Image img(juce::Image::ARGB, 1280, 800, true);
+                {
+                    juce::Graphics g(img);
+                    khaenEditor->paintEntireComponent(g, true);
+                }
+                auto writePng = [&](const juce::File& f)
+                {
+                    if (f.existsAsFile()) f.deleteFile();
+                    juce::FileOutputStream stream(f);
+                    if (stream.openedOk())
+                    {
+                        juce::PNGImageFormat png;
+                        png.writeImageToStream(img, stream);
+                        std::cout << "Saved: " << f.getFullPathName() << std::endl;
+                    }
+                };
+                writePng(juce::File("c:/APPs/Khaen/khaen_vst_midimap.png"));
+                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/e30c6d66-b020-45af-b20a-31bf03030328/media_ui_midimap.png"));
+            }
+            khaenEditor->toggleMidiMappingDialog(); // close overlay
 
             // ── Render 7-second demonstration WAV imitating Video 0:09 to 0:27 with continuous keyswitch breath rhythm ──
             {

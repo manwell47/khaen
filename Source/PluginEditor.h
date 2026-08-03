@@ -4,6 +4,7 @@
 #include "UI/CustomKnob.h"
 #include "UI/WaveVisualizer.h"
 #include "UI/MidiLed.h"
+#include "UI/MidiMappingDialog.h"
 
 //==============================================================================
 /**
@@ -12,7 +13,7 @@
  * Layout (1280×800, aspect-locked 16:10):
  *
  *  ┌─────────────────────────────────────────────────────────────┐
- *  │  HEADER: Preset Selector | Logo | MIDI Led                  │  60px
+ *  │  HEADER: Preset Selector | Logo | MIDI MAP | MIDI Led       │  60px
  *  ├──────────┬──────────────────────────────────────────────────┤
  *  │  MACROS  │  VISUALIZER  |  PHYSICS PARAMS                  │  500px
  *  │  Air     │  WaveVis     |  Reed Stiff / Bore / Material    │
@@ -34,6 +35,7 @@ public:
     void paint   (juce::Graphics&) override;
     void resized () override;
     void switchTab (int tabIndex);
+    void toggleMidiMappingDialog();
 
 private:
     //==========================================================================
@@ -51,6 +53,7 @@ private:
     void buildHarmonizerPanel();
     void buildCrystalPanel();
     void buildReverbPanel();
+    void setupMidiBindings();
 
     void paintHeader      (juce::Graphics&, juce::Rectangle<int>, float);
     void paintFxArea      (juce::Graphics&, juce::Rectangle<int>, float);
@@ -63,8 +66,9 @@ private:
 
     // ── Header ────────────────────────────────────────────────────────────────
     juce::ComboBox    m_presetBox;
-    juce::TextButton  m_prevPreset { "<" };
-    juce::TextButton  m_nextPreset { ">" };
+    juce::TextButton  m_prevPreset  { "<" };
+    juce::TextButton  m_nextPreset  { ">" };
+    juce::TextButton  m_midiMapBtn  { "MIDI MAP" };
     MidiLed           m_midiLed;
     juce::Label       m_midiLabel;
 
@@ -160,6 +164,9 @@ private:
                                m_attRevWidth, m_attRevMix;
     std::unique_ptr<ComboAtt>  m_attRevPreset;
     std::unique_ptr<ButtonAtt> m_attRevBypass;
+
+    // ── MIDI Mapping Overlay Dialog ───────────────────────────────────────────
+    std::unique_ptr<MidiMappingDialog> m_midiMappingDialog;
 
     // Bounds constrainer for resizable window
     juce::ComponentBoundsConstrainer m_constrainer;

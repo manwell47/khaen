@@ -57,6 +57,12 @@ target_sources(Khaen PRIVATE
     Source/UI/WaveVisualizer.cpp
     Source/UI/WaveVisualizer.h
     Source/UI/MidiLed.h
+    Source/UI/MidiMappingDialog.cpp
+    Source/UI/MidiMappingDialog.h
+
+    # MIDI & Hardware Mapping
+    Source/MIDI/MidiCCManager.cpp
+    Source/MIDI/MidiCCManager.h
 
     # DSP Engine
     Source/DSP/FreeReedModel.cpp
@@ -104,6 +110,7 @@ target_include_directories(Khaen PRIVATE
     Source
     Source/DSP
     Source/FX
+    Source/MIDI
     Source/Presets
     Source/UI
 )
@@ -153,6 +160,7 @@ target_include_directories(KhaenDspTest PRIVATE
     Source
     Source/DSP
     Source/FX
+    Source/MIDI
     Source/Presets
     Source/UI
 )

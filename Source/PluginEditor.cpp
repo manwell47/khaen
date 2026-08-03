@@ -1,5 +1,9 @@
 #include "PluginEditor.h"
 
+#if JUCE_STANDALONE_APPLICATION || !defined(JucePlugin_Build_Standalone) || JucePlugin_Build_Standalone
+#include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+#endif
+
 //==============================================================================
 // Colour palette matching luxury copper/bamboo dark aesthetic
 namespace
@@ -35,6 +39,7 @@ KhaenEditor::KhaenEditor (KhaenAudioProcessor& p)
     buildMacroPanel();
     buildPhysicsPanel();
     buildFxPanel();
+    setupMidiBindings();
 
     addAndMakeVisible(m_waveVis);
 
@@ -47,6 +52,7 @@ KhaenEditor::~KhaenEditor()
     m_presetBox.removeListener(this);
     m_prevPreset.removeListener(this);
     m_nextPreset.removeListener(this);
+    m_midiMapBtn.removeListener(this);
     m_tabDelay.removeListener(this);
     m_tabHarmonizer.removeListener(this);
     m_tabCrystal.removeListener(this);
@@ -94,6 +100,12 @@ void KhaenEditor::buildHeader()
     m_midiLabel.setFont(juce::Font(10.0f, juce::Font::bold));
     m_midiLabel.setColour(juce::Label::textColourId, kTextDim);
     m_midiLabel.setJustificationType(juce::Justification::centredRight);
+
+    // MIDI Mapping button
+    addAndMakeVisible(m_midiMapBtn);
+    m_midiMapBtn.addListener(this);
+    m_midiMapBtn.setColour(juce::TextButton::buttonColourId,   kPanel.brighter(0.08f));
+    m_midiMapBtn.setColour(juce::TextButton::textColourOffId,  kCopper);
 }
 
 //==============================================================================
@@ -401,6 +413,104 @@ void KhaenEditor::buildReverbPanel()
     m_attRevBypass  = std::make_unique<ButtonAtt>(apvts, "reverbBypass", m_reverbBypassBtn);
 }
 
+void KhaenEditor::setupMidiBindings()
+{
+    auto* mgr = &m_proc.getMidiCCManager();
+    auto openDialog = [this]() { toggleMidiMappingDialog(); };
+
+    // Macros
+    m_knobAir.setMidiBinding(mgr, "macroAir");
+    m_knobEmboc.setMidiBinding(mgr, "macroEmbouchure");
+    m_knobResonance.setMidiBinding(mgr, "macroResonance");
+
+    m_knobAir.setOpenMidiManagerCallback(openDialog);
+    m_knobEmboc.setOpenMidiManagerCallback(openDialog);
+    m_knobResonance.setOpenMidiManagerCallback(openDialog);
+
+    // Physical Model
+    m_knobStiffness.setMidiBinding(mgr, "reedStiffness");
+    m_knobBore.setMidiBinding(mgr, "boreDiameter");
+    m_knobBreathSpeed.setMidiBinding(mgr, "breathSpeed");
+    m_knobSuctionBite.setMidiBinding(mgr, "suctionBite");
+    m_knobVocalTract.setMidiBinding(mgr, "vocalTract");
+    m_knobTongue.setMidiBinding(mgr, "tongueContact");
+
+    m_knobStiffness.setOpenMidiManagerCallback(openDialog);
+    m_knobBore.setOpenMidiManagerCallback(openDialog);
+    m_knobBreathSpeed.setOpenMidiManagerCallback(openDialog);
+    m_knobSuctionBite.setOpenMidiManagerCallback(openDialog);
+    m_knobVocalTract.setOpenMidiManagerCallback(openDialog);
+    m_knobTongue.setOpenMidiManagerCallback(openDialog);
+
+    // Delay
+    m_knobDelTime.setMidiBinding(mgr, "delayTime");
+    m_knobDelFb.setMidiBinding(mgr, "delayFeedback");
+    m_knobDelMix.setMidiBinding(mgr, "delayMix");
+    m_knobDelWow.setMidiBinding(mgr, "delayWow");
+    m_knobDelFlut.setMidiBinding(mgr, "delayFlutter");
+
+    m_knobDelTime.setOpenMidiManagerCallback(openDialog);
+    m_knobDelFb.setOpenMidiManagerCallback(openDialog);
+    m_knobDelMix.setOpenMidiManagerCallback(openDialog);
+    m_knobDelWow.setOpenMidiManagerCallback(openDialog);
+    m_knobDelFlut.setOpenMidiManagerCallback(openDialog);
+
+    // Harmonizer
+    m_knobHarmShift.setMidiBinding(mgr, "harmonShift");
+    m_knobHarmDet.setMidiBinding(mgr, "harmonDetune");
+    m_knobHarmSpread.setMidiBinding(mgr, "harmonVoices");
+    m_knobHarmMix.setMidiBinding(mgr, "harmonMix");
+
+    m_knobHarmShift.setOpenMidiManagerCallback(openDialog);
+    m_knobHarmDet.setOpenMidiManagerCallback(openDialog);
+    m_knobHarmSpread.setOpenMidiManagerCallback(openDialog);
+    m_knobHarmMix.setOpenMidiManagerCallback(openDialog);
+
+    // Crystallizer
+    m_knobCrysGrain.setMidiBinding(mgr, "crystalGrainMs");
+    m_knobCrysDelay.setMidiBinding(mgr, "crystalDelayMs");
+    m_knobCrysFb.setMidiBinding(mgr, "crystalFeedback");
+    m_knobCrysMix.setMidiBinding(mgr, "crystalMix");
+    m_knobCrysPitch.setMidiBinding(mgr, "crystalPitch");
+
+    m_knobCrysGrain.setOpenMidiManagerCallback(openDialog);
+    m_knobCrysDelay.setOpenMidiManagerCallback(openDialog);
+    m_knobCrysFb.setOpenMidiManagerCallback(openDialog);
+    m_knobCrysMix.setOpenMidiManagerCallback(openDialog);
+    m_knobCrysPitch.setOpenMidiManagerCallback(openDialog);
+
+    // Reverb
+    m_knobRevSize.setMidiBinding(mgr, "reverbSize");
+    m_knobRevDecay.setMidiBinding(mgr, "reverbDecay");
+    m_knobRevDamp.setMidiBinding(mgr, "reverbDamp");
+    m_knobRevWidth.setMidiBinding(mgr, "reverbWidth");
+    m_knobRevMix.setMidiBinding(mgr, "reverbMix");
+
+    m_knobRevSize.setOpenMidiManagerCallback(openDialog);
+    m_knobRevDecay.setOpenMidiManagerCallback(openDialog);
+    m_knobRevDamp.setOpenMidiManagerCallback(openDialog);
+    m_knobRevWidth.setOpenMidiManagerCallback(openDialog);
+    m_knobRevMix.setOpenMidiManagerCallback(openDialog);
+}
+
+void KhaenEditor::toggleMidiMappingDialog()
+{
+    if (m_midiMappingDialog != nullptr)
+    {
+        m_midiMappingDialog.reset();
+    }
+    else
+    {
+        m_midiMappingDialog = std::make_unique<MidiMappingDialog>(m_proc.getMidiCCManager());
+        m_midiMappingDialog->setCloseCallback([this]() {
+            m_midiMappingDialog.reset();
+        });
+        addAndMakeVisible(*m_midiMappingDialog);
+        m_midiMappingDialog->setBounds(getLocalBounds());
+        m_midiMappingDialog->toFront(true);
+    }
+}
+
 //==============================================================================
 void KhaenEditor::switchTab (int tab)
 {
@@ -445,6 +555,10 @@ void KhaenEditor::buttonClicked (juce::Button* btn)
         m_presetBox.setSelectedItemIndex(idx);
         m_proc.loadPreset(idx);
     }
+    if (btn == &m_midiMapBtn)
+    {
+        toggleMidiMappingDialog();
+    }
 }
 
 //==============================================================================
@@ -461,10 +575,14 @@ void KhaenEditor::resized()
     {
         auto h = header.reduced(juce::roundToInt(12 * scale), juce::roundToInt(12 * scale));
 
-        // Right side: MIDI LED + Label
+        // Right side: MIDI LED + Label + MIDI MAP Button
         auto midiArea = h.removeFromRight(juce::roundToInt(70 * scale));
         m_midiLed.setBounds(midiArea.removeFromRight(juce::roundToInt(20 * scale)).reduced(2));
         m_midiLabel.setBounds(midiArea);
+
+        h.removeFromRight(juce::roundToInt(10 * scale));
+        int mapBtnW = juce::roundToInt(100 * scale);
+        m_midiMapBtn.setBounds(h.removeFromRight(mapBtnW).reduced(0, juce::roundToInt(2 * scale)));
 
         h.removeFromRight(juce::roundToInt(16 * scale));
 
@@ -488,12 +606,19 @@ void KhaenEditor::resized()
         m_knobEmboc.setBounds(macroArea.removeFromTop(knobH).reduced(juce::roundToInt(14 * scale), juce::roundToInt(10 * scale)));
         m_knobResonance.setBounds(macroArea.reduced(juce::roundToInt(14 * scale), juce::roundToInt(10 * scale)));
 
-        // Symmetric right physics area
+        // Symmetric right physics area with equal top and bottom spacing
         auto physArea = content.removeFromRight(sideW).reduced(juce::roundToInt(8 * scale), 0);
         int  physW    = physArea.getWidth();
+        int  physH    = physArea.getHeight();
         
-        // 3x2 Symmetrical Grid for Physics Knobs
-        int rowH = juce::roundToInt(95 * scale);
+        // Calculate total content height and distribute equal padding top & bottom
+        int rowH = juce::roundToInt(90 * scale);
+        int comboSectionH = juce::roundToInt(115 * scale);
+        int totalContentH = (rowH * 3) + comboSectionH;
+        int verticalPadding = std::max(0, (physH - totalContentH) / 2);
+        
+        physArea.removeFromTop(verticalPadding);
+        
         int colW = physW / 2;
 
         // Row 1: STIFFNESS & BORE DIA (Symmetrical 2-column)
@@ -630,6 +755,9 @@ void KhaenEditor::resized()
             m_reverbBypassBtn.setBounds(revPreRect.removeFromTop(juce::roundToInt(26 * scale)));
         }
     }
+
+    if (m_midiMappingDialog != nullptr)
+        m_midiMappingDialog->setBounds(getLocalBounds());
 }
 
 //==============================================================================

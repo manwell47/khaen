@@ -212,11 +212,33 @@ void WaveVisualizer::drawBreathHud (juce::Graphics& g)
     g.setColour(juce::Colour(0x80101018));
     g.fillRoundedRectangle(badgeRect, 6.f);
 
+    bool isActive = m_proc.isInstrumentActive();
     float breathPhase = m_proc.getBreathPhase();
     bool isInhale = m_proc.isBreathInhale();
     bool isSustainedSuction = FreeReedModel::hasSustainedBassNote();
     float ksFlash = m_proc.getKeyswitchPulseFlash();
     int lastKs = m_proc.getLastKeyswitchNote();
+
+    if (!isActive)
+    {
+        // Standby / Rest state
+        juce::Colour restColor = juce::Colour(0xFF7A7A8E);
+        g.setColour(restColor.withAlpha(0.35f));
+        g.drawRoundedRectangle(badgeRect, 6.f, 1.f);
+
+        // Muted dot
+        float dotRadius = 3.5f;
+        float dotCenterY = badgeRect.getCentreY();
+        float dotCenterX = badgeRect.getX() + 14.f;
+        g.setColour(restColor.withAlpha(0.5f));
+        g.fillEllipse(dotCenterX - dotRadius, dotCenterY - dotRadius, dotRadius * 2.f, dotRadius * 2.f);
+
+        // Text: REST
+        g.setFont(juce::Font(juce::FontOptions().withHeight(11.5f).withStyle("Bold")));
+        g.setColour(restColor.brighter(0.25f));
+        g.drawText("REST", badgeRect.withTrimmedLeft(26.f).withTrimmedRight(6.f), juce::Justification::centredLeft, false);
+        return;
+    }
 
     juce::Colour themeColor = isInhale ? juce::Colour(0xFF4EE2D2) : juce::Colour(0xFFFFC04D);
     g.setColour(themeColor.withAlpha(isSustainedSuction ? 0.75f : (ksFlash > 0.05f ? 0.65f : 0.40f)));

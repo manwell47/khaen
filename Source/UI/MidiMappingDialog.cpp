@@ -1,0 +1,359 @@
+#include "MidiMappingDialog.h"
+
+namespace
+{
+    static const juce::Colour kBg        = juce::Colour(0xFF0D0D14);
+    static const juce::Colour kPanel     = juce::Colour(0xFF161622);
+    static const juce::Colour kRowEven   = juce::Colour(0xFF14141E);
+    static const juce::Colour kRowOdd    = juce::Colour(0xFF191926);
+    static const juce::Colour kCopper    = juce::Colour(0xFFC8965A);
+    static const juce::Colour kCopperDim = juce::Colour(0xFF8B6914);
+    static const juce::Colour kGold      = juce::Colour(0xFFE8C97A);
+    static const juce::Colour kGhost     = juce::Colour(0xFF6A7A9A);
+    static const juce::Colour kTextPrim  = juce::Colour(0xFFEEEEEE);
+    static const juce::Colour kTextDim   = juce::Colour(0xFF7A7A8E);
+    static const juce::Colour kCyan      = juce::Colour(0xFF4AC4E2);
+}
+
+//==============================================================================
+MidiMappingDialog::RowComponent::RowComponent (MidiMappingDialog& owner, const ParamItem& it)
+    : item(it), m_owner(owner)
+{
+    addAndMakeVisible(m_learnBtn);
+    addAndMakeVisible(m_clearBtn);
+
+    m_learnBtn.setColour(juce::TextButton::buttonColourId,  kPanel.brighter(0.06f));
+    m_learnBtn.setColour(juce::TextButton::textColourOffId, kCopper);
+
+    m_clearBtn.setColour(juce::TextButton::buttonColourId,  kPanel);
+    m_clearBtn.setColour(juce::TextButton::textColourOffId, kTextDim);
+
+    m_learnBtn.onClick = [this]()
+    {
+        if (m_owner.m_midiCCManager.isLearningParam(item.paramID))
+            m_owner.m_midiCCManager.stopLearning();
+        else
+            m_owner.m_midiCCManager.startLearning(item.paramID);
+
+        updateState();
+    };
+
+    m_clearBtn.onClick = [this]()
+    {
+        m_owner.m_midiCCManager.clearMapping(item.paramID);
+        updateState();
+    };
+
+    updateState();
+}
+
+void MidiMappingDialog::RowComponent::updateState()
+{
+    bool isLearning = m_owner.m_midiCCManager.isLearningParam(item.paramID);
+    int cc = m_owner.m_midiCCManager.getCCForParam(item.paramID);
+
+    if (isLearning)
+    {
+        m_learnBtn.setButtonText("WAITING...");
+        m_learnBtn.setColour(juce::TextButton::buttonColourId,  kCyan.darker(0.5f));
+        m_learnBtn.setColour(juce::TextButton::textColourOffId, kCyan.brighter(0.6f));
+    }
+    else
+    {
+        m_learnBtn.setButtonText("LEARN");
+        m_learnBtn.setColour(juce::TextButton::buttonColourId,  kPanel.brighter(0.06f));
+        m_learnBtn.setColour(juce::TextButton::textColourOffId, kCopper);
+    }
+
+    m_clearBtn.setEnabled(cc >= 0);
+    m_clearBtn.setAlpha(cc >= 0 ? 1.0f : 0.4f);
+
+    repaint();
+}
+
+void MidiMappingDialog::RowComponent::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced(4.0f, 2.0f);
+
+    // Row category pill
+    auto catArea = b.removeFromLeft(76.0f).reduced(2.0f, 3.0f);
+    juce::Colour catCol = item.category == "MACRO"   ? kCopper
+                        : item.category == "PHYSICS" ? kGold
+                        : item.category == "DELAY"   ? kCyan
+                        : item.category == "HARMON"  ? kGhost
+                        : item.category == "CRYSTAL" ? juce::Colour(0xFFB072D8)
+                        : juce::Colour(0xFF50C896);
+
+    g.setColour(catCol.withAlpha(0.18f));
+    g.fillRoundedRectangle(catArea, 3.0f);
+    g.setColour(catCol);
+    g.drawRoundedRectangle(catArea, 3.0f, 1.0f);
+    g.setFont(juce::Font(9.0f, juce::Font::bold));
+    g.drawText(item.category, catArea, juce::Justification::centred, false);
+
+    // Parameter Name
+    b.removeFromLeft(6.0f);
+    auto nameArea = b.removeFromLeft(180.0f).reduced(2.0f, 0.0f);
+    g.setFont(juce::Font(12.0f, juce::Font::bold));
+    g.setColour(kTextPrim);
+    g.drawText(item.displayName, nameArea, juce::Justification::centredLeft, true);
+
+    // CC Value badge
+    int cc = m_owner.m_midiCCManager.getCCForParam(item.paramID);
+    bool isLearning = m_owner.m_midiCCManager.isLearningParam(item.paramID);
+
+    b.removeFromLeft(6.0f);
+    auto ccArea = b.removeFromLeft(130.0f).reduced(2.0f, 3.0f);
+    if (isLearning)
+    {
+        g.setColour(kCyan.withAlpha(0.2f));
+        g.fillRoundedRectangle(ccArea, 3.0f);
+        g.setColour(kCyan);
+        g.drawRoundedRectangle(ccArea, 3.0f, 1.0f);
+        g.setFont(juce::Font(10.0f, juce::Font::bold));
+        g.drawText("TURN HW KNOB...", ccArea, juce::Justification::centred, false);
+    }
+    else if (cc >= 0)
+    {
+        g.setColour(kGold.withAlpha(0.18f));
+        g.fillRoundedRectangle(ccArea, 3.0f);
+        g.setColour(kGold);
+        g.drawRoundedRectangle(ccArea, 3.0f, 1.0f);
+        g.setFont(juce::Font(11.0f, juce::Font::bold));
+        g.drawText("CC " + juce::String(cc), ccArea, juce::Justification::centred, false);
+    }
+    else
+    {
+        g.setColour(kTextDim.withAlpha(0.6f));
+        g.setFont(juce::Font(11.0f, juce::Font::italic));
+        g.drawText("- Unassigned -", ccArea, juce::Justification::centred, false);
+    }
+}
+
+void MidiMappingDialog::RowComponent::resized()
+{
+    auto b = getLocalBounds().reduced(4, 2);
+    m_clearBtn.setBounds(b.removeFromRight(55).reduced(2, 2));
+    b.removeFromRight(6);
+    m_learnBtn.setBounds(b.removeFromRight(80).reduced(2, 2));
+}
+
+//==============================================================================
+MidiMappingDialog::ListContentComponent::ListContentComponent (MidiMappingDialog& owner,
+                                                               const std::vector<ParamItem>& items)
+{
+    for (const auto& it : items)
+    {
+        auto row = std::make_unique<RowComponent>(owner, it);
+        addAndMakeVisible(*row);
+        rows.push_back(std::move(row));
+    }
+}
+
+void MidiMappingDialog::ListContentComponent::resized()
+{
+    int y = 0;
+    const int rowH = 32;
+    for (auto& row : rows)
+    {
+        row->setBounds(0, y, getWidth(), rowH);
+        y += rowH;
+    }
+}
+
+void MidiMappingDialog::ListContentComponent::updateAllRows()
+{
+    for (auto& row : rows)
+        row->updateState();
+    repaint();
+}
+
+//==============================================================================
+MidiMappingDialog::MidiMappingDialog (MidiCCManager& midiCCManager)
+    : m_midiCCManager(midiCCManager)
+{
+    buildParameterList();
+
+    addAndMakeVisible(m_titleLabel);
+    addAndMakeVisible(m_closeBtn);
+    addAndMakeVisible(m_stdMidiBtn);
+    addAndMakeVisible(m_clearAllBtn);
+    addAndMakeVisible(m_saveDefaultBtn);
+    addAndMakeVisible(m_loadDefaultBtn);
+
+    m_titleLabel.setText("KHAEN - MIDI CC ASSIGNMENT MATRIX", juce::dontSendNotification);
+    m_titleLabel.setFont(juce::Font(13.5f, juce::Font::bold));
+    m_titleLabel.setColour(juce::Label::textColourId, kCopper);
+    m_titleLabel.setJustificationType(juce::Justification::centredLeft);
+
+    m_closeBtn.setColour(juce::TextButton::buttonColourId,  kPanel.brighter(0.08f));
+    m_closeBtn.setColour(juce::TextButton::textColourOffId, kGold);
+    m_closeBtn.onClick = [this]() { if (m_closeCallback) m_closeCallback(); };
+
+    auto stylePresetBtn = [](juce::TextButton& btn, juce::Colour col)
+    {
+        btn.setColour(juce::TextButton::buttonColourId,  kPanel.brighter(0.05f));
+        btn.setColour(juce::TextButton::textColourOffId, col);
+    };
+
+    stylePresetBtn(m_stdMidiBtn,     kCyan.brighter(0.2f));
+    stylePresetBtn(m_clearAllBtn,    kGhost);
+    stylePresetBtn(m_saveDefaultBtn, kCyan);
+    stylePresetBtn(m_loadDefaultBtn, kTextPrim);
+
+    m_stdMidiBtn.onClick = [this]()
+    {
+        m_midiCCManager.applyStandardMidiCC();
+        if (m_content) m_content->updateAllRows();
+    };
+
+    m_clearAllBtn.onClick = [this]()
+    {
+        m_midiCCManager.clearAll();
+        if (m_content) m_content->updateAllRows();
+    };
+
+    m_saveDefaultBtn.onClick = [this]()
+    {
+        m_midiCCManager.saveAsGlobalDefault();
+    };
+
+    m_loadDefaultBtn.onClick = [this]()
+    {
+        m_midiCCManager.loadGlobalDefault();
+        if (m_content) m_content->updateAllRows();
+    };
+
+    m_content = std::make_unique<ListContentComponent>(*this, m_paramItems);
+    m_viewport.setViewedComponent(m_content.get(), false);
+    m_viewport.setScrollBarsShown(true, false);
+    m_viewport.setScrollBarThickness(8);
+    addAndMakeVisible(m_viewport);
+
+    m_midiCCManager.addListener(this);
+}
+
+MidiMappingDialog::~MidiMappingDialog()
+{
+    m_midiCCManager.removeListener(this);
+}
+
+//==============================================================================
+void MidiMappingDialog::buildParameterList()
+{
+    m_paramItems = {
+        // Macros
+        { "MACRO",   "macroAir",        "Air Macro" },
+        { "MACRO",   "macroEmbouchure", "Embouchure Macro" },
+        { "MACRO",   "macroResonance",  "Resonance Macro" },
+
+        // Physical Model
+        { "PHYSICS", "reedStiffness",   "Reed Stiffness" },
+        { "PHYSICS", "boreDiameter",    "Bore Diameter" },
+        { "PHYSICS", "blowPressure",    "Blow Pressure" },
+        { "PHYSICS", "lipDamping",      "Lip Damping" },
+        { "PHYSICS", "boreReflection",  "Bore Reflection" },
+        { "PHYSICS", "breathSpeed",     "Breath Speed" },
+        { "PHYSICS", "suctionBite",     "Suction Bite" },
+        { "PHYSICS", "tongueContact",   "Tongue Contact" },
+        { "PHYSICS", "vocalTract",      "Vocal Tract" },
+
+        // Tape Delay
+        { "DELAY",   "delayTime",       "Delay Time" },
+        { "DELAY",   "delayFeedback",   "Delay Feedback" },
+        { "DELAY",   "delayMix",        "Delay Mix" },
+        { "DELAY",   "delayWow",        "Delay Wow" },
+        { "DELAY",   "delayFlutter",    "Delay Flutter" },
+
+        // Harmonizer
+        { "HARMON",  "harmonShift",     "Harmonizer Shift" },
+        { "HARMON",  "harmonMix",       "Harmonizer Mix" },
+        { "HARMON",  "harmonVoices",    "Harmonizer Spread" },
+        { "HARMON",  "harmonDetune",    "Harmonizer Detune" },
+
+        // Granular Crystallizer
+        { "CRYSTAL", "crystalGrainMs",  "Crystal Grain Size" },
+        { "CRYSTAL", "crystalDelayMs",  "Crystal Delay" },
+        { "CRYSTAL", "crystalFeedback", "Crystal Feedback" },
+        { "CRYSTAL", "crystalMix",      "Crystal Mix" },
+        { "CRYSTAL", "crystalPitch",    "Crystal Pitch" },
+
+        // Reverb Engine
+        { "REVERB",  "reverbSize",      "Reverb Size" },
+        { "REVERB",  "reverbDecay",     "Reverb Decay" },
+        { "REVERB",  "reverbDamp",      "Reverb Damping" },
+        { "REVERB",  "reverbWidth",     "Reverb Width" },
+        { "REVERB",  "reverbMix",       "Reverb Mix" }
+    };
+}
+
+//==============================================================================
+void MidiMappingDialog::midiMappingsChanged()
+{
+    if (m_content)
+        m_content->updateAllRows();
+}
+
+void MidiMappingDialog::midiLearnStateChanged (const juce::String& /*paramID*/, bool /*isLearning*/)
+{
+    if (m_content)
+        m_content->updateAllRows();
+}
+
+//==============================================================================
+void MidiMappingDialog::paint (juce::Graphics& g)
+{
+    // Dark semi-transparent background overlay
+    g.setColour(juce::Colours::black.withAlpha(0.70f));
+    g.fillAll();
+
+    // Centered, compact dialog card (width ~620, height ~540)
+    int cardW = juce::jmin(620, getWidth() - 32);
+    int cardH = juce::jmin(540, getHeight() - 32);
+    auto card = getLocalBounds().withSizeKeepingCentre(cardW, cardH).toFloat();
+
+    // Shadow
+    g.setColour(juce::Colours::black.withAlpha(0.6f));
+    g.fillRoundedRectangle(card.translated(0.0f, 4.0f), 10.0f);
+
+    // Dialog card body
+    g.setColour(kBg);
+    g.fillRoundedRectangle(card, 10.0f);
+
+    // Copper border
+    g.setColour(kCopper.withAlpha(0.6f));
+    g.drawRoundedRectangle(card, 10.0f, 1.5f);
+
+    // Header divider lines
+    g.setColour(kPanel.brighter(0.12f));
+    g.drawLine(card.getX(), card.getY() + 44.0f, card.getRight(), card.getY() + 44.0f, 1.0f);
+    g.drawLine(card.getX(), card.getY() + 84.0f, card.getRight(), card.getY() + 84.0f, 1.0f);
+}
+
+void MidiMappingDialog::resized()
+{
+    int cardW = juce::jmin(620, getWidth() - 32);
+    int cardH = juce::jmin(540, getHeight() - 32);
+    auto card = getLocalBounds().withSizeKeepingCentre(cardW, cardH);
+
+    // Header top row (44px)
+    auto headerRow = card.removeFromTop(44).reduced(14, 6);
+    m_closeBtn.setBounds(headerRow.removeFromRight(28).reduced(0, 2));
+    m_titleLabel.setBounds(headerRow);
+
+    // Presets Toolbar (40px)
+    auto toolRow = card.removeFromTop(40).reduced(12, 5);
+    m_stdMidiBtn.setBounds(toolRow.removeFromLeft(195).reduced(2));
+    m_clearAllBtn.setBounds(toolRow.removeFromLeft(80).reduced(2));
+    toolRow.removeFromLeft(8);
+    m_saveDefaultBtn.setBounds(toolRow.removeFromLeft(105).reduced(2));
+    m_loadDefaultBtn.setBounds(toolRow.removeFromLeft(105).reduced(2));
+
+    // Viewport for rows
+    m_viewport.setBounds(card.reduced(8, 8));
+    if (m_content)
+    {
+        int totalH = static_cast<int>(m_paramItems.size()) * 32;
+        m_content->setBounds(0, 0, m_viewport.getWidth() - 10, totalH);
+    }
+}

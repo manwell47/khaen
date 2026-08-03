@@ -6,6 +6,7 @@
 #include "FX/GranularCrystallizer.h"
 #include "FX/ReverbEngine.h"
 #include "Presets/PresetManager.h"
+#include "MIDI/MidiCCManager.h"
 
 //==============================================================================
 /**
@@ -70,6 +71,7 @@ public:
     // Public accessors for the editor
     juce::AudioProcessorValueTreeState& getAPVTS() { return m_apvts; }
     PresetManager& getPresetManager()              { return m_presetManager; }
+    MidiCCManager& getMidiCCManager()              { return m_midiCCManager; }
     KhaenSynthesiser& getSynthesiser()             { return m_synth; }
     ReverbEngine& getReverb()                      { return m_reverb; }
 
@@ -90,6 +92,14 @@ public:
     bool  isBreathInhale() const noexcept { return FreeReedModel::isGlobalInhale(); }
     float getKeyswitchPulseFlash() const noexcept { return m_keyswitchPulseFlash.load(); }
     int   getLastKeyswitchNote() const noexcept { return m_lastKeyswitchNote.load(); }
+
+    /** Returns true if the instrument is actively being played or producing sound */
+    bool isInstrumentActive() const noexcept
+    {
+        return m_activeNoteNumber.load(std::memory_order_relaxed) >= 0.f
+            || m_outputRms.load(std::memory_order_relaxed) > 0.001f
+            || m_keyswitchPulseFlash.load(std::memory_order_relaxed) > 0.02f;
+    }
 
     /** Consume MIDI activity flag for LED indicator (lock-free) */
     bool consumeMidiActivity() noexcept;
@@ -114,6 +124,7 @@ private:
     GranularCrystallizer m_crystallizer;
     ReverbEngine         m_reverb;
     PresetManager        m_presetManager;
+    MidiCCManager        m_midiCCManager;
 
     // Visualizer ring buffer (lock-free)
     static constexpr int kVisBufSize = 4096;
