@@ -18,6 +18,7 @@ void FreeReedModel::prepare (double sampleRate, int /*blockSize*/)
     m_mechanicalPopDecay = 1.0f / std::max(1.f, 0.014f * m_sampleRate); // ~14ms mechanical bamboo/reed pop
 
     m_chiffFilter.setup(3600.f, 2.2f, m_sampleRate);
+    m_formantVocalTract.setup(850.f, 2.5f, 4.0f, m_sampleRate);
     updateFormants();
     reset();
 }
@@ -29,6 +30,7 @@ void FreeReedModel::reset()
     m_formantChest.reset();
     m_formantPipe.reset();
     m_formantReed.reset();
+    m_formantVocalTract.reset();
     m_sympatheticTao.reset();
     m_chiffFilter.reset();
 
@@ -46,6 +48,15 @@ void FreeReedModel::reset()
     m_inhaleBlend       = 0.f;
     m_suctionTransient  = 0.f;
     m_formantUpdateCounter = 0;
+
+    m_tongueContactTimer       = 0.f;
+    m_articulationTimer        = -1.f;
+    m_articulationTotalSamples = 0.f;
+    m_portatoDip               = 0.f;
+    m_effectiveDamping         = 1.0f;
+    m_effectiveStiffness       = 1.0f;
+    m_slapPrePressure          = 0.f;
+    m_tongueForce              = 0.f;
 
     m_mechanicalPopLevel = 0.f;
     m_mechanicalPopPhase = 0.f;
@@ -138,6 +149,22 @@ void FreeReedModel::updateFormants()
     m_formantPipe.setup(fPipeHz,   qPipe,  gainPipe,  m_sampleRate);
     m_formantReed.setup(fReedHz,   qReed,  gainReed,  m_sampleRate);
 
+    // Vocal Tract / Oral Cavity Resonator (Pàmies-Vilà et al. 2020)
+    // Highly audible vowel formants from throat / deep "OO" (280 Hz) to open "AH" (950 Hz) to sharp "EE" (2600 Hz)
+    float baseVocalTract = juce::jlimit(0.0f, 1.0f, m_params.vocalTract + 0.35f * (m_lipControl - 0.5f));
+    float fVTHz = 280.f * std::pow(2600.f / 280.f, baseVocalTract);
+    float qVT   = 2.2f + 1.8f * baseVocalTract;
+    float gainVT= 5.5f + 4.5f * baseVocalTract;
+
+    // In upper registers (clarion/altissimo), couple oral cavity to 2nd harmonic to accelerate attacks
+    if (m_reedFreq > 350.f)
+    {
+        float targetHarmonic = (m_reedFreq < 750.f) ? (2.0f * m_reedFreq) : m_reedFreq;
+        float pullWeight = juce::jlimit(0.0f, 0.50f, (m_reedFreq - 350.f) / 450.f);
+        fVTHz = (1.0f - pullWeight) * fVTHz + pullWeight * targetHarmonic;
+    }
+    m_formantVocalTract.setup(fVTHz, qVT, gainVT, m_sampleRate);
+
     // Sympathetic Tao wooden windchest chamber body resonance (320-380 Hz)
     float fTaoHz = 320.f + 50.f * wInhale;
     float gainTao = 3.2f + 2.0f * wInhale;
@@ -189,8 +216,70 @@ void FreeReedModel::noteOn (float midiNote)
     m_baseMidiNote   = midiNote;
     m_dcBlocker.reset();
 
-    // Trigger mechanical transient pop & reed snap
-    m_mechanicalPopLevel = 0.65f * juce::jlimit(0.4f, 1.0f, m_params.blowPressure + 0.3f);
+    // Reset Hunt-Crossley collision & dynamic state
+    m_tongueContactTimer = 0.f;
+    m_effectiveDamping   = 1.0f;
+    m_effectiveStiffness = 1.0f;
+    m_tongueForce        = 0.f;
+    m_portatoDip         = 0.f;
+
+    // Configure attack transient and auto-choke duration according to Articulation mode
+    switch (m_params.articulation)
+    {
+        case Articulation::SlapTongue:
+        {
+            // Slap-tongue: explosive bamboo percussion with fast decaying reed ring (35-45ms)
+            float noteDurationSec = 0.040f;
+            m_articulationTotalSamples = noteDurationSec * m_sampleRate;
+            m_articulationTimer        = m_articulationTotalSamples;
+            m_slapPrePressure          = 2.2f;
+            m_mechanicalPopLevel       = 1.35f;
+            m_attackRate               = 1.0f / std::max(1.f, 0.0008f * m_sampleRate); // 0.8ms explosive transient
+            m_effectiveDamping         = 2.2f;
+            m_effectiveStiffness       = 1.4f;
+            break;
+        }
+
+        case Articulation::Staccato:
+        {
+            // Staccato: punchy detached tongue stroke with auto-choke (30ms - 90ms based on tongueContactMs)
+            float noteDurationSec = std::max(0.025f, m_params.tongueContactMs * 0.0018f);
+            m_articulationTotalSamples = noteDurationSec * m_sampleRate;
+            m_articulationTimer        = m_articulationTotalSamples;
+            m_slapPrePressure          = 0.20f;
+            m_mechanicalPopLevel       = 0.85f * juce::jlimit(0.4f, 1.0f, m_params.blowPressure + 0.3f);
+            m_attackRate               = 1.0f / std::max(1.f, 0.0012f * m_sampleRate); // 1.2ms instant crisp attack
+            m_effectiveDamping         = 1.0f;
+            m_effectiveStiffness       = 1.25f;
+            break;
+        }
+
+        case Articulation::Portato:
+        {
+            // Portato: tongued tenuto with distinct attack click and 20ms initial resistance dip, sustains while held
+            m_articulationTimer        = -1.f;
+            m_slapPrePressure          = 0.0f;
+            m_mechanicalPopLevel       = 0.70f * juce::jlimit(0.4f, 1.0f, m_params.blowPressure + 0.3f);
+            m_attackRate               = 1.0f / std::max(1.f, 0.0025f * m_sampleRate); // 2.5ms attack
+            m_portatoDip               = 0.65f; // Initial tongue resistance dip
+            m_effectiveDamping         = 1.0f;
+            m_effectiveStiffness       = 1.0f;
+            break;
+        }
+
+        case Articulation::Legato:
+        default:
+        {
+            // Legato: smooth singing continuous airflow without harsh tongue transient
+            m_articulationTimer        = -1.f;
+            m_slapPrePressure          = 0.0f;
+            m_mechanicalPopLevel       = 0.25f * juce::jlimit(0.3f, 1.0f, m_params.blowPressure);
+            m_attackRate               = 1.0f / std::max(1.f, 0.0070f * m_sampleRate); // 7ms smooth legato attack
+            m_effectiveDamping         = 1.0f;
+            m_effectiveStiffness       = 1.0f;
+            break;
+        }
+    }
     m_mechanicalPopPhase = 0.f;
 
     // Rhythmic breath stroke sync & Bass note suction lock:
@@ -225,8 +314,41 @@ void FreeReedModel::noteOn (float midiNote)
 
 void FreeReedModel::noteOff (float releaseTime)
 {
-    m_releasing   = true;
-    m_releaseRate = 1.0f / std::max(1.f, juce::jmax(0.01f, releaseTime) * m_sampleRate);
+    m_releasing = true;
+
+    // Hunt-Crossley Articulation Damping on Note-Off (Chatziioannou et al. 2019)
+    switch (m_params.articulation)
+    {
+        case Articulation::Staccato:
+            // Immediate tongue arrest: damping jumps, rapid decay < 6ms
+            m_tongueContactTimer = std::max(1.f, m_params.tongueContactMs * 0.001f * m_sampleRate * 0.30f);
+            m_effectiveDamping   = 5.0f;
+            m_effectiveStiffness = 0.70f;
+            m_releaseRate        = 1.0f / std::max(1.f, 0.005f * m_sampleRate); // 5ms staccato chop
+            break;
+
+        case Articulation::SlapTongue:
+            m_effectiveDamping   = 8.0f;
+            m_effectiveStiffness = 0.60f;
+            m_releaseRate        = 1.0f / std::max(1.f, 0.004f * m_sampleRate); // 4ms instant slap decay
+            break;
+
+        case Articulation::Portato:
+            // Moderate tongue contact: damping jumps by 2.0x, smooth 35ms decay
+            m_tongueContactTimer = std::max(1.f, m_params.tongueContactMs * 0.001f * m_sampleRate);
+            m_effectiveDamping   = 2.0f;
+            m_effectiveStiffness = 0.85f;
+            m_releaseRate        = 1.0f / std::max(1.f, 0.035f * m_sampleRate); // 35ms portato decay
+            break;
+
+        case Articulation::Legato:
+        default:
+            // Natural airflow release without tongue collision (~80-100ms)
+            m_effectiveDamping   = 1.0f;
+            m_effectiveStiffness = 1.0f;
+            m_releaseRate        = 1.0f / std::max(1.f, juce::jmax(0.04f, releaseTime) * m_sampleRate);
+            break;
+    }
 }
 
 void FreeReedModel::retriggerBreathPulse (float velocity, BreathDirection dir)
@@ -301,15 +423,57 @@ float FreeReedModel::processSample()
     if (m_suctionTransient > 0.0001f)
         m_suctionTransient = std::max(0.0f, m_suctionTransient - m_suctionDecayRate);
 
+    // Articulation auto-choke timer for Staccato and Slap-Tongue
+    if (m_articulationTimer > 0.f)
+    {
+        m_articulationTimer -= 1.0f;
+        if (m_articulationTimer <= 0.f)
+        {
+            m_releasing = true;
+            if (m_params.articulation == Articulation::SlapTongue)
+            {
+                m_effectiveDamping = 8.0f;
+                m_releaseRate = 1.0f / std::max(1.f, 0.005f * m_sampleRate); // 5ms abrupt slap cutoff
+            }
+            else if (m_params.articulation == Articulation::Staccato)
+            {
+                m_effectiveDamping = 5.0f;
+                m_releaseRate = 1.0f / std::max(1.f, 0.007f * m_sampleRate); // 7ms clean tongue arrest
+            }
+        }
+    }
+
+    // Slap-tongue pre-pressure rapid decay (~15ms)
+    if (m_slapPrePressure > 0.001f)
+        m_slapPrePressure *= 0.970f;
+
+    // Portato initial re-articulation dip decay (~22ms)
+    if (m_portatoDip > 0.001f)
+        m_portatoDip *= 0.985f;
+
+    // Hunt-Crossley Tongue Contact & Damping Simulation (Chatziioannou et al. 2019)
+    if (m_tongueContactTimer > 0.f)
+    {
+        m_tongueContactTimer -= 1.0f;
+        // Dissipative contact force f_tg = k_tg * [y_tg - y]^1.2 * (1 + r_tg * v)
+        m_tongueForce = 0.45f * (m_effectiveDamping - 1.0f) * (1.0f + 1.8f * m_phaseIncrement);
+    }
+    else if (!m_releasing)
+    {
+        m_tongueForce = 0.f;
+        m_effectiveDamping = 1.0f;
+        m_effectiveStiffness = 1.0f;
+    }
+
     // Mechanical bamboo fingerhole pop & bronze tongue release impulse
     float popSound = 0.f;
     if (m_mechanicalPopLevel > 0.0001f)
     {
-        m_mechanicalPopPhase += juce::MathConstants<float>::twoPi * (420.f + 160.f * m_inhaleBlend) / m_sampleRate;
+        m_mechanicalPopPhase += juce::MathConstants<float>::twoPi * (380.f + 140.f * m_inhaleBlend) / m_sampleRate;
         if (m_mechanicalPopPhase >= juce::MathConstants<float>::twoPi)
             m_mechanicalPopPhase -= juce::MathConstants<float>::twoPi;
 
-        popSound = m_mechanicalPopLevel * std::sin(m_mechanicalPopPhase);
+        popSound = m_mechanicalPopLevel * (std::sin(m_mechanicalPopPhase) + 0.35f * std::sin(m_mechanicalPopPhase * 4.2f));
         m_mechanicalPopLevel = std::max(0.0f, m_mechanicalPopLevel - m_mechanicalPopDecay);
     }
 
@@ -320,11 +484,11 @@ float FreeReedModel::processSample()
         updateFormants();
     }
 
-    // 2. Smooth breath pressure tracking
+    // 2. Smooth breath pressure tracking with articulation dynamics
     float targetP = m_releasing ? 0.f : m_targetPressure;
     constexpr float kPressureSmoothing = 0.015f;
     m_pressureSmooth += kPressureSmoothing * (targetP - m_pressureSmooth);
-    float Pm = m_pressureSmooth;
+    float Pm = (m_pressureSmooth + 0.45f * m_slapPrePressure) * (1.0f - 0.40f * m_portatoDip);
 
     // 3. Dynamic Aerodynamic Pitch Pulling & Micro-Jitter (Natural Acoustic Life)
     // Physical free reeds bend slightly with pressure (~6-12 cents on forte)
@@ -356,22 +520,25 @@ float FreeReedModel::processSample()
         m_reedEigenPhase2 -= juce::MathConstants<float>::twoPi;
 
     float bronzeEigenmodes = (0.040f * std::sin(m_reedEigenPhase1) + 0.015f * std::sin(m_reedEigenPhase2))
-                           * (0.6f + 0.4f * m_params.reedStiffness);
+                           * (0.6f + 0.4f * m_params.reedStiffness * m_effectiveStiffness);
 
-    // 4. Multi-Harmonic Free-Reed Spectral Excitation (Odd & Even series)
+    // 4. Multi-Harmonic Free-Reed Spectral Excitation (with Viscothermal Bamboo Losses)
     int maxHarmonics = std::min(28, static_cast<int>((m_sampleRate * 0.46f) / m_reedFreq));
     float nyquistLimit = m_sampleRate * 0.46f;
     float reedSignal = bronzeEigenmodes;
 
     // Inhale suction increases tongue vibration curvature and harmonic bite
     float inhaleBite = 1.0f + 0.85f * m_inhaleBlend * m_params.suctionBite;
-    float stiffFactor = (0.75f + m_params.reedStiffness * 0.45f) * inhaleBite;
+    float stiffFactor = (0.75f + m_params.reedStiffness * 0.45f) * inhaleBite * m_effectiveStiffness;
 
     for (int k = 1; k <= maxHarmonics; ++k)
     {
         float harmFreq = static_cast<float>(k) * m_reedFreq;
         float taper = juce::jlimit(0.f, 1.f, (nyquistLimit - harmFreq) / (m_reedFreq * 1.5f));
         if (taper <= 0.f) break;
+
+        // Viscothermal boundary layer loss in bamboo tube: alpha_v proportional to sqrt(k * f0) / boreDiameter
+        float viscFactor = 1.0f / (1.0f + 0.008f * std::sqrt(harmFreq) / (m_params.boreDiameterMm * 0.1f));
 
         float amp = 0.f;
         switch (k)
@@ -391,8 +558,12 @@ float FreeReedModel::processSample()
 
         // Slight natural dispersion across higher overtones for organic warmth
         float harmonicPhase = static_cast<float>(k) * m_phase + 0.035f * std::sin(static_cast<float>(k) * 0.5f);
-        reedSignal += amp * taper * std::sin(harmonicPhase);
+        reedSignal += amp * taper * viscFactor * std::sin(harmonicPhase);
     }
+
+    // Apply Hunt-Crossley contact damping attenuation to exciter
+    if (m_tongueForce > 0.001f)
+        reedSignal /= (1.0f + m_tongueForce);
 
     // 5. Smooth Acoustic Aerodynamic Slit Flow & Shimmer
     float reedSq = reedSignal * reedSignal;
@@ -400,7 +571,7 @@ float FreeReedModel::processSample()
     float flowVelocity = reedSignal * aperture;
 
     // Asymmetric hyperbolic excitation for rich bronze free-reed character
-    float suctionSatDrive = 1.25f + 0.50f * m_inhaleBlend * m_params.suctionBite;
+    float suctionSatDrive = 1.25f + 0.50f * m_inhaleBlend * m_params.suctionBite + 0.4f * m_slapPrePressure;
     float exciterSound = std::tanh(suctionSatDrive * flowVelocity + 0.14f * (flowVelocity * flowVelocity - 0.4f)) * m_shimmerFiltered;
 
     // 6. Turbulent Airflow Friction & Suction Chiff Noise
@@ -429,14 +600,15 @@ float FreeReedModel::processSample()
     // Combine exciter, turbulent chiff, and mechanical bamboo pop
     float rawAcoustic = (exciterSound + chiffNoise * chiffGain + popSound * 0.45f) * breathVibrato * Pm;
 
-    // 8. Quad Acoustic Body Resonators (Tao Windchest + Sympathetic Tao Body + Bamboo Chimney + Reed Buzz)
+    // 8. Quad Acoustic Body Resonators + Vocal Tract (Tao Windchest + Sympathetic Tao Body + Bamboo Chimney + Reed Buzz + Vocal Tract)
     float fChest = m_formantChest.process(rawAcoustic);
     float fTao   = m_sympatheticTao.process(fChest);
     float fPipe  = m_formantPipe.process(fTao);
     float fReed  = m_formantReed.process(fPipe);
+    float fVT    = m_formantVocalTract.process(fReed);
 
     // 9. Output DC-blocking and Clean Acoustic Gain Staging
-    float cleanAcoustic = m_dcBlocker.process(fReed);
+    float cleanAcoustic = m_dcBlocker.process(fVT);
     float outSample = cleanAcoustic * 0.44f;
 
     // Gentle soft-limiter only at extreme safety peaks

@@ -145,6 +145,9 @@ private:
     std::atomic<float>* m_pBreathSpeed    = nullptr;
     std::atomic<float>* m_pSuctionBite    = nullptr;
     std::atomic<float>* m_pAutoInhaleRiff = nullptr;
+    std::atomic<float>* m_pArticulation   = nullptr;
+    std::atomic<float>* m_pTongueContact  = nullptr;
+    std::atomic<float>* m_pVocalTract     = nullptr;
 
     std::atomic<float>* m_pDelayTime        = nullptr;
     std::atomic<float>* m_pDelayFeedback    = nullptr;

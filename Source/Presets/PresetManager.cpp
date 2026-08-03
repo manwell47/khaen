@@ -147,6 +147,9 @@ void PresetManager::applyPhysicsToApvts (const Preset& p,
     setParam("material",         static_cast<float>(p.physParams.material));
     setParam("breathSpeed",      p.physParams.breathSpeedHz);
     setParam("suctionBite",      p.physParams.suctionBite);
+    setParam("articulation",     static_cast<float>(p.physParams.articulation));
+    setParam("tongueContact",    p.physParams.tongueContactMs);
+    setParam("vocalTract",       p.physParams.vocalTract);
 
     // Macros
     setParam("macroAir",         p.macroAir);

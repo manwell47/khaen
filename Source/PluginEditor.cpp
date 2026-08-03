@@ -123,14 +123,20 @@ void KhaenEditor::buildPhysicsPanel()
     addAndMakeVisible(m_knobBore);
     addAndMakeVisible(m_knobBreathSpeed);
     addAndMakeVisible(m_knobSuctionBite);
+    addAndMakeVisible(m_knobVocalTract);
+    addAndMakeVisible(m_knobTongue);
     addAndMakeVisible(m_matLabel);
     addAndMakeVisible(m_matCombo);
+    addAndMakeVisible(m_artLabel);
+    addAndMakeVisible(m_artCombo);
     addAndMakeVisible(m_autoRiffBtn);
 
     m_knobStiffness.knob.setRange(0.0, 1.0, 0.01);
     m_knobBore.knob.setRange(8.0, 30.0, 0.1);
     m_knobBreathSpeed.knob.setRange(0.20, 3.0, 0.05);
     m_knobSuctionBite.knob.setRange(0.0, 1.0, 0.01);
+    m_knobVocalTract.knob.setRange(0.0, 1.0, 0.01);
+    m_knobTongue.knob.setRange(10.0, 100.0, 0.5);
 
     // Material selector
     m_matLabel.setText("MATERIAL", juce::dontSendNotification);
@@ -147,15 +153,33 @@ void KhaenEditor::buildPhysicsPanel()
     m_matCombo.setColour(juce::ComboBox::arrowColourId,       kCopper);
     m_matCombo.setColour(juce::ComboBox::outlineColourId,     kCopperDim.withAlpha(0.5f));
 
+    // Articulation selector (Legato / Portato / Staccato / Slap Tongue)
+    m_artLabel.setText("ARTICULATION", juce::dontSendNotification);
+    m_artLabel.setFont(juce::Font(10.0f, juce::Font::bold));
+    m_artLabel.setColour(juce::Label::textColourId, kTextDim);
+    m_artLabel.setJustificationType(juce::Justification::centred);
+
+    juce::StringArray arts { "Legato", "Portato", "Staccato", "Slap Tongue" };
+    for (int i = 0; i < arts.size(); ++i)
+        m_artCombo.addItem(arts[i], i + 1);
+
+    m_artCombo.setColour(juce::ComboBox::backgroundColourId,  kPanel);
+    m_artCombo.setColour(juce::ComboBox::textColourId,        kTextPrim);
+    m_artCombo.setColour(juce::ComboBox::arrowColourId,       kCopper);
+    m_artCombo.setColour(juce::ComboBox::outlineColourId,     kCopperDim.withAlpha(0.5f));
+
     m_autoRiffBtn.setColour(juce::ToggleButton::textColourId, kTextDim);
     m_autoRiffBtn.setColour(juce::ToggleButton::tickColourId,   kCopper);
 
-    m_attStiffness   = std::make_unique<SliderAtt>(apvts, "reedStiffness",  m_knobStiffness.knob);
-    m_attBore        = std::make_unique<SliderAtt>(apvts, "boreDiameter",   m_knobBore.knob);
-    m_attBreathSpeed = std::make_unique<SliderAtt>(apvts, "breathSpeed",    m_knobBreathSpeed.knob);
-    m_attSuctionBite = std::make_unique<SliderAtt>(apvts, "suctionBite",    m_knobSuctionBite.knob);
-    m_attMaterial    = std::make_unique<ComboAtt> (apvts, "material",       m_matCombo);
-    m_attAutoRiff    = std::make_unique<ButtonAtt>(apvts, "autoInhaleRiff", m_autoRiffBtn);
+    m_attStiffness    = std::make_unique<SliderAtt>(apvts, "reedStiffness",  m_knobStiffness.knob);
+    m_attBore         = std::make_unique<SliderAtt>(apvts, "boreDiameter",   m_knobBore.knob);
+    m_attBreathSpeed  = std::make_unique<SliderAtt>(apvts, "breathSpeed",    m_knobBreathSpeed.knob);
+    m_attSuctionBite  = std::make_unique<SliderAtt>(apvts, "suctionBite",    m_knobSuctionBite.knob);
+    m_attVocalTract   = std::make_unique<SliderAtt>(apvts, "vocalTract",     m_knobVocalTract.knob);
+    m_attTongue       = std::make_unique<SliderAtt>(apvts, "tongueContact",  m_knobTongue.knob);
+    m_attMaterial     = std::make_unique<ComboAtt> (apvts, "material",       m_matCombo);
+    m_attArticulation = std::make_unique<ComboAtt> (apvts, "articulation",   m_artCombo);
+    m_attAutoRiff     = std::make_unique<ButtonAtt>(apvts, "autoInhaleRiff", m_autoRiffBtn);
 }
 
 //==============================================================================
@@ -465,36 +489,45 @@ void KhaenEditor::resized()
         m_knobResonance.setBounds(macroArea.reduced(juce::roundToInt(14 * scale), juce::roundToInt(10 * scale)));
 
         // Symmetric right physics area
-        auto physArea = content.removeFromRight(sideW).reduced(juce::roundToInt(10 * scale), 0);
+        auto physArea = content.removeFromRight(sideW).reduced(juce::roundToInt(8 * scale), 0);
         int  physW    = physArea.getWidth();
         
-        // 2x2 Symmetrical Grid for Physics Knobs
-        int rowH = juce::roundToInt(120 * scale);
+        // 3x2 Symmetrical Grid for Physics Knobs
+        int rowH = juce::roundToInt(95 * scale);
         int colW = physW / 2;
 
         // Row 1: STIFFNESS & BORE DIA (Symmetrical 2-column)
         auto row1 = physArea.removeFromTop(rowH);
-        m_knobStiffness.setBounds(row1.removeFromLeft(colW).reduced(juce::roundToInt(4 * scale), juce::roundToInt(4 * scale)));
-        m_knobBore.setBounds(row1.reduced(juce::roundToInt(4 * scale), juce::roundToInt(4 * scale)));
+        m_knobStiffness.setBounds(row1.removeFromLeft(colW).reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
+        m_knobBore.setBounds(row1.reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
 
         // Row 2: BREATH SPD & SUCTION BITE (Symmetrical 2-column)
         auto row2 = physArea.removeFromTop(rowH);
-        m_knobBreathSpeed.setBounds(row2.removeFromLeft(colW).reduced(juce::roundToInt(4 * scale), juce::roundToInt(4 * scale)));
-        m_knobSuctionBite.setBounds(row2.reduced(juce::roundToInt(4 * scale), juce::roundToInt(4 * scale)));
+        m_knobBreathSpeed.setBounds(row2.removeFromLeft(colW).reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
+        m_knobSuctionBite.setBounds(row2.reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
+
+        // Row 3: VOCAL TRACT & TONGUE CONTACT (Hunt-Crossley & Vocal Formant)
+        auto row3 = physArea.removeFromTop(rowH);
+        m_knobVocalTract.setBounds(row3.removeFromLeft(colW).reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
+        m_knobTongue.setBounds(row3.reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
         
-        // Bottom: Material Combo & Auto-Riff button (Symmetrically centered)
-        int comboW = juce::roundToInt(170 * scale);
+        // Bottom: Material & Articulation Combos & Auto-Riff button (Symmetrically centered)
+        int comboW = juce::roundToInt(180 * scale);
         int marginX = (physW - comboW) / 2;
         auto comboArea = physArea.withTrimmedLeft(marginX).withTrimmedRight(marginX);
         
-        comboArea.removeFromTop(juce::roundToInt(4 * scale));
-        m_matLabel.setBounds(comboArea.removeFromTop(juce::roundToInt(14 * scale)));
-        m_matCombo.setBounds(comboArea.removeFromTop(juce::roundToInt(24 * scale)));
-        comboArea.removeFromTop(juce::roundToInt(6 * scale));
+        comboArea.removeFromTop(juce::roundToInt(2 * scale));
+        m_matLabel.setBounds(comboArea.removeFromTop(juce::roundToInt(12 * scale)));
+        m_matCombo.setBounds(comboArea.removeFromTop(juce::roundToInt(20 * scale)));
         
+        comboArea.removeFromTop(juce::roundToInt(3 * scale));
+        m_artLabel.setBounds(comboArea.removeFromTop(juce::roundToInt(12 * scale)));
+        m_artCombo.setBounds(comboArea.removeFromTop(juce::roundToInt(20 * scale)));
+        
+        comboArea.removeFromTop(juce::roundToInt(4 * scale));
         int btnW = juce::roundToInt(130 * scale);
         int btnMargin = (comboW - btnW) / 2;
-        m_autoRiffBtn.setBounds(comboArea.withTrimmedLeft(btnMargin).withTrimmedRight(btnMargin).removeFromTop(juce::roundToInt(24 * scale)));
+        m_autoRiffBtn.setBounds(comboArea.withTrimmedLeft(btnMargin).withTrimmedRight(btnMargin).removeFromTop(juce::roundToInt(20 * scale)));
 
         // Visualizer fills remaining center area
         m_waveVis.setBounds(content.reduced(juce::roundToInt(8 * scale)));

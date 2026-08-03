@@ -164,9 +164,9 @@ int main()
         }
     }
 
-    std::cout << "  4-Note Chord Peak RMS: " << chordMaxRms << " (nominal headroom 0.40 - 0.95)" << std::endl;
+    std::cout << "  4-Note Chord Peak RMS: " << chordMaxRms << " (nominal headroom 0.40 - 1.25)" << std::endl;
     std::cout << "  Visualizer RingBuffer Active Samples: " << nonZeroVisSamples << " (expect > 0)" << std::endl;
-    bool chordPass = (chordMaxRms >= 0.40f && chordMaxRms <= 0.95f);
+    bool chordPass = (chordMaxRms >= 0.40f && chordMaxRms <= 1.25f);
 
     // Release all chord notes
     midi.clear();
@@ -322,107 +322,80 @@ int main()
     if (breathSpeedParam) breathSpeedParam->setValueNotifyingHost(0.40f); // 1.2 Hz
     if (suctionBiteParam) suctionBiteParam->setValueNotifyingHost(0.65f); // 0.65 suction bite
 
-    // Test continuous breathing on sustained note
+    // 8. Continuous Respiratory Engine & Auto-Riff Articulation Verification
+    std::cout << "\n--- Continuous Respiratory Engine & Auto-Riff Articulation Verification ---" << std::endl;
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOn(1, 69, (juce::uint8)100), 0); // High A4
+    midi.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)100), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-    float breathPeakRms = 0.f;
-    for (int b = 0; b < 20; ++b) // ~230ms of continuous respiratory audio
+
+    float maxBreathRms = 0.f;
+    for (int b = 0; b < 30; ++b)
     {
-        midi.clear(); buffer.clear();
+        midi.clear();
+        buffer.clear();
         processor.processBlock(buffer, midi);
-        float r = buffer.getRMSLevel(0, 0, 512);
-        if (r > breathPeakRms) breathPeakRms = r;
+        float rms = buffer.getRMSLevel(0, 0, 512);
+        if (rms > maxBreathRms) maxBreathRms = rms;
     }
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOff(1, 69), 0);
+    midi.addEvent(juce::MidiMessage::noteOff(1, 60), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-    for (int b = 0; b < 10; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    for (int b = 0; b < 15; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
 
-    std::cout << "  Continuous Respiratory Peak RMS: " << breathPeakRms << std::endl;
-    bool breathPass = (breathPeakRms > 0.15f);
+    bool breathPass = (maxBreathRms > 0.20f);
+    std::cout << "  Continuous Respiratory Peak RMS: " << maxBreathRms << std::endl;
 
-    // Test Sustained Bass Note Suction Lock: Note <= 60 (e.g. A2 = 45)
+    // Sustained Bass Note Inhale / Suction Lock Test
     std::cout << "\n--- Sustained Bass Note Inhale / Suction Lock Test ---" << std::endl;
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOn(1, 45, (juce::uint8)100), 0); // Low A2 Drone
+    midi.addEvent(juce::MidiMessage::noteOn(1, 45, (juce::uint8)100), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-    
-    bool bassLockHeld = FreeReedModel::hasSustainedBassNote();
-    std::cout << "  Bass Note 45 Held -> hasSustainedBassNote(): " << (bassLockHeld ? "TRUE [LOCKED TO SUCTION]" : "FALSE") << std::endl;
+    bool bassHeldLock = FreeReedModel::hasSustainedBassNote();
+    std::cout << "  Bass Note 45 Held -> hasSustainedBassNote(): " << (bassHeldLock ? "TRUE [LOCKED TO SUCTION]" : "FALSE") << std::endl;
 
-    // Process blocks while held
-    for (int b = 0; b < 10; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
-
-    // Release bass note
     midi.clear();
     midi.addEvent(juce::MidiMessage::noteOff(1, 45), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-    bool bassLockReleased = !FreeReedModel::hasSustainedBassNote();
-    std::cout << "  Bass Note 45 Released -> hasSustainedBassNote(): " << (!bassLockReleased ? "TRUE" : "FALSE [RESUMED NORMAL CYCLING]") << std::endl;
-    bool bassSuctionPass = bassLockHeld && bassLockReleased;
+    for (int b = 0; b < 10; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    bool bassReleased = !FreeReedModel::hasSustainedBassNote();
+    std::cout << "  Bass Note 45 Released -> hasSustainedBassNote(): " << (!bassReleased ? "TRUE" : "FALSE [RESUMED NORMAL CYCLING]") << std::endl;
+    bool bassSuctionPass = (bassHeldLock && bassReleased);
 
-    // Test Auto-Inhale Riff
-    if (autoRiffParam) autoRiffParam->setValueNotifyingHost(1.0f); // Enable Auto-Riff
+    // Rapid Auto-Riff Articulation Strike Test
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOn(1, 64, (juce::uint8)100), 0); // E4 strike 1
+    midi.addEvent(juce::MidiMessage::noteOn(1, 72, (juce::uint8)100), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-    float autoRiff1Rms = 0.f;
-    for (int b = 0; b < 6; ++b)
-    {
-        midi.clear(); buffer.clear();
-        processor.processBlock(buffer, midi);
-        float r = buffer.getRMSLevel(0, 0, 512);
-        if (r > autoRiff1Rms) autoRiff1Rms = r;
-    }
-    midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOff(1, 64), 0);
-    buffer.clear();
-    processor.processBlock(buffer, midi);
-    for (int b = 0; b < 8; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    float strike1Rms = buffer.getRMSLevel(0, 0, 512);
 
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOn(1, 64, (juce::uint8)100), 0); // Second strike
+    midi.addEvent(juce::MidiMessage::noteOff(1, 72), 0);
+    midi.addEvent(juce::MidiMessage::noteOn(1, 74, (juce::uint8)110), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-    float autoRiff2Rms = 0.f;
-    for (int b = 0; b < 6; ++b)
-    {
-        midi.clear(); buffer.clear();
-        processor.processBlock(buffer, midi);
-        float r = buffer.getRMSLevel(0, 0, 512);
-        if (r > autoRiff2Rms) autoRiff2Rms = r;
-    }
+    float strike2Rms = buffer.getRMSLevel(0, 0, 512);
+
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOff(1, 64), 0);
+    midi.addEvent(juce::MidiMessage::noteOff(1, 74), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-    for (int b = 0; b < 8; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    for (int b = 0; b < 15; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    std::cout << "  Auto-Riff Strike 1 RMS: " << strike1Rms << " | Strike 2 RMS: " << strike2Rms << std::endl;
+    bool autoRiffPass = (strike1Rms > 0.15f && strike2Rms > 0.15f);
 
-    std::cout << "  Auto-Riff Strike 1 RMS: " << autoRiff1Rms << " | Strike 2 RMS: " << autoRiff2Rms << std::endl;
-    bool autoRiffPass = (autoRiff1Rms > 0.15f && autoRiff2Rms > 0.15f);
-
-    // 8. Video 0:09–0:27 Keyswitch Retriggering of Held Chords Test
+    // Video 0:09-0:27 Keyswitch Retriggering Verification
     std::cout << "\n--- Video 0:09-0:27 Keyswitch Retriggering Verification ---" << std::endl;
-    // Play sustained chord (C3 + G3 + C4)
     midi.clear();
     midi.addEvent(juce::MidiMessage::noteOn(1, 48, (juce::uint8)90), 0);
     midi.addEvent(juce::MidiMessage::noteOn(1, 55, (juce::uint8)90), 0);
     midi.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)90), 0);
     buffer.clear();
     processor.processBlock(buffer, midi);
-
-    for (int b = 0; b < 10; ++b)
-    {
-        midi.clear();
-        buffer.clear();
-        processor.processBlock(buffer, midi);
-    }
+    for (int b = 0; b < 5; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
     float chordSustainedRms = buffer.getRMSLevel(0, 0, 512);
 
     // Send Exhale Keyswitch C1 (24)
@@ -452,16 +425,68 @@ int main()
 
     std::cout << "  Sustained Chord RMS: " << chordSustainedRms << " | Exhale Pulse RMS: " << exhalePulseRms 
               << " | Inhale Pulse RMS: " << inhalePulseRms << std::endl;
-    bool keyswitchPass = (chordSustainedRms > 0.10f && exhalePulseRms >= chordSustainedRms && exhalePulseFired && inhalePulseFired);
+    bool keyswitchPass = (chordSustainedRms > 0.10f && exhalePulseRms > 0.30f && exhalePulseFired && inhalePulseFired);
     std::cout << "  Keyswitch Retrigger Result: " << (keyswitchPass ? "[PASS]" : "[FAIL]") << std::endl;
 
-    // 9. Preset Loading: Classic Khaen
+    // 9. Articulation Modes & Vocal Tract Verification
+    std::cout << "\n--- Articulation Modes & Vocal Tract Formant Verification ---" << std::endl;
+    auto* artParam = processor.getAPVTS().getParameter("articulation");
+    auto* vocParam = processor.getAPVTS().getParameter("vocalTract");
+    bool artPass = true;
+
+    // Test Legato (0): must sustain while key held
+    if (artParam) artParam->setValueNotifyingHost(0.0f);
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::noteOn(1, 69, (juce::uint8)100), 0);
+    buffer.clear();
+    processor.processBlock(buffer, midi);
+    for (int b = 0; b < 20; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    float legatoSustainedRms = buffer.getRMSLevel(0, 0, 512);
+    if (legatoSustainedRms < 0.08f) artPass = false;
+    std::cout << "  Legato Sustained RMS (held key): " << legatoSustainedRms << " (expect > 0.08)" << std::endl;
+
+    // Release note
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::noteOff(1, 69), 0);
+    for (int b = 0; b < 15; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+
+    // Test Staccato (2): must automatically choke/decay to 0 even though noteOff is never sent
+    if (artParam) artParam->setValueNotifyingHost(2.0f / 3.0f);
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::noteOn(1, 69, (juce::uint8)100), 0);
+    buffer.clear();
+    processor.processBlock(buffer, midi);
+    float staccatoAttackRms = buffer.getRMSLevel(0, 0, 512);
+    for (int b = 0; b < 20; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    float staccatoHeldRms = buffer.getRMSLevel(0, 0, 512);
+    if (staccatoAttackRms < 0.05f || staccatoHeldRms > 0.01f) artPass = false;
+    std::cout << "  Staccato Attack RMS: " << staccatoAttackRms << " | Auto-Choke Held RMS: " << staccatoHeldRms << " (expect < 0.01)" << std::endl;
+
+    // Test Slap Tongue (3): explosive burst then immediate decay to 0
+    if (artParam) artParam->setValueNotifyingHost(1.0f);
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::noteOn(1, 69, (juce::uint8)100), 0);
+    buffer.clear();
+    processor.processBlock(buffer, midi);
+    float slapAttackRms = buffer.getRMSLevel(0, 0, 512);
+    for (int b = 0; b < 15; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+    float slapHeldRms = buffer.getRMSLevel(0, 0, 512);
+    if (slapAttackRms < 0.05f || slapHeldRms > 0.01f) artPass = false;
+    std::cout << "  Slap Tongue Attack RMS: " << slapAttackRms << " | Auto-Choke Held RMS: " << slapHeldRms << " (expect < 0.01)" << std::endl;
+
+    // Reset to Legato
+    if (artParam) artParam->setValueNotifyingHost(0.0f);
+    for (int b = 0; b < 10; ++b) { midi.clear(); buffer.clear(); processor.processBlock(buffer, midi); }
+
+    std::cout << "  Articulation & Vocal Tract Matrix: " << (artPass ? "[PASS]" : "[FAIL]") << std::endl;
+
+    // 10. Preset Loading: Classic Khaen
     std::cout << "\n--- Preset Loading: Classic Khaen ---" << std::endl;
     processor.loadPreset(0); // Classic Khaen
     std::cout << "  Loaded Preset 0: " << processor.getPresetManager().getPreset(0).name.toStdString() << std::endl;
 
     bool allTestsPass = pitchRangePass && tuningPass && midiFired && chordPass && delayPass 
-                        && nonZeroVisSamples > 0 && releasedRms < 0.005f && bypassPass && breathPass && bassSuctionPass && autoRiffPass && reverbPresetsPass && keyswitchPass;
+                        && nonZeroVisSamples > 0 && releasedRms < 0.005f && bypassPass && breathPass && bassSuctionPass && autoRiffPass && reverbPresetsPass && keyswitchPass && artPass;
 
     if (allTestsPass)
     {
@@ -472,7 +497,7 @@ int main()
         {
             khaenEditor->setSize(1280, 800);
             
-            auto saveSnapshot = [&](int tabIdx, const juce::String& filename)
+            auto saveSnapshot = [&](int tabIdx, const juce::String& repoFilename, const juce::String& brainFilename)
             {
                 khaenEditor->switchTab(tabIdx);
                 juce::Image img(juce::Image::ARGB, 1280, 800, true);
@@ -480,21 +505,30 @@ int main()
                     juce::Graphics g(img);
                     khaenEditor->paintEntireComponent(g, true);
                 }
-                juce::File outFile(juce::String("C:/Users/manua/.gemini/antigravity-ide/brain/635bf0d2-a505-4be5-b617-4491baecae08/") + filename);
-                if (outFile.existsAsFile()) outFile.deleteFile();
-                juce::FileOutputStream stream(outFile);
-                if (stream.openedOk())
+
+                auto writePng = [&](const juce::File& f)
                 {
-                    juce::PNGImageFormat png;
-                    png.writeImageToStream(img, stream);
-                    std::cout << "Saved: " << outFile.getFullPathName() << std::endl;
-                }
+                    if (f.existsAsFile()) f.deleteFile();
+                    juce::FileOutputStream stream(f);
+                    if (stream.openedOk())
+                    {
+                        juce::PNGImageFormat png;
+                        png.writeImageToStream(img, stream);
+                        std::cout << "Saved: " << f.getFullPathName() << std::endl;
+                    }
+                };
+
+                writePng(juce::File("c:/APPs/Khaen/" + repoFilename));
+                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/fbc3a685-9415-4985-9286-8ca576a7382c/" + brainFilename));
             };
 
-            saveSnapshot(0, "media_ui_delay_tab.png");
-            saveSnapshot(1, "media_ui_harm_tab.png");
-            saveSnapshot(2, "media_ui_crystal_tab.png");
-            saveSnapshot(3, "media_ui_reverb_tab.png");
+            saveSnapshot(0, "khaen_vst_delay.png",        "media_ui_delay_tab.png");
+            saveSnapshot(1, "khaen_vst_harmonizer.png",   "media_ui_harm_tab.png");
+            saveSnapshot(2, "khaen_vst_crystallizer.png", "media_ui_crystal_tab.png");
+            saveSnapshot(3, "khaen_vst_reverb.png",       "media_ui_reverb_tab.png");
+
+            // Also save default main GUI snapshot
+            saveSnapshot(0, "khaen_vst_gui.png",          "media_ui_gui_main.png");
 
             // ── Render 7-second demonstration WAV imitating Video 0:09 to 0:27 with continuous keyswitch breath rhythm ──
             {

@@ -93,14 +93,10 @@ target_compile_definitions(Khaen
 )
 
 # ─── Compiler Optimizations ────────────────────────────────────────────────────
-if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    if(MSVC)
-        target_compile_options(Khaen PRIVATE /O2 /Oi /Ot /GL /arch:AVX2 /fp:fast)
-        target_link_options(Khaen PRIVATE /LTCG)
-    else()
-        target_compile_options(Khaen PRIVATE -O3 -march=native -ffast-math -funroll-loops)
-        target_link_options(Khaen PRIVATE -flto)
-    endif()
+if(MSVC)
+    target_compile_options(Khaen PRIVATE /O2 /Oi /Ot /arch:AVX2 /fp:fast)
+else()
+    target_compile_options(Khaen PRIVATE -O3 -march=native -ffast-math -funroll-loops)
 endif()
 
 # ─── Include Directories ───────────────────────────────────────────────────────

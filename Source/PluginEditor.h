@@ -83,12 +83,16 @@ private:
     LabelledKnob m_knobBore        { "BORE DIA",     KhaenKnob::Style::Gold   };
     LabelledKnob m_knobBreathSpeed { "BREATH SPD",   KhaenKnob::Style::Copper };
     LabelledKnob m_knobSuctionBite { "SUCTION BITE", KhaenKnob::Style::Gold   };
+    LabelledKnob m_knobVocalTract  { "VOCAL TRACT",  KhaenKnob::Style::Gold   };
+    LabelledKnob m_knobTongue      { "TONGUE (MS)",  KhaenKnob::Style::Ghost  };
     juce::ComboBox     m_matCombo;
     juce::Label        m_matLabel;
+    juce::ComboBox     m_artCombo;
+    juce::Label        m_artLabel;
     juce::ToggleButton m_autoRiffBtn { "AUTO-RIFF" };
 
-    std::unique_ptr<SliderAtt> m_attStiffness, m_attBore, m_attBreathSpeed, m_attSuctionBite;
-    std::unique_ptr<ComboAtt>  m_attMaterial;
+    std::unique_ptr<SliderAtt> m_attStiffness, m_attBore, m_attBreathSpeed, m_attSuctionBite, m_attVocalTract, m_attTongue;
+    std::unique_ptr<ComboAtt>  m_attMaterial, m_attArticulation;
     std::unique_ptr<ButtonAtt> m_attAutoRiff;
 
     // ── FX Tab bar ────────────────────────────────────────────────────────────

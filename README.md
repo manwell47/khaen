@@ -161,69 +161,77 @@ For **Avid Pro Tools** (Pro Tools Ultimate, Pro Tools Studio, Pro Tools Artist):
 ## DSP Physical Modeling Architecture
 
 ```
-                          [ MIDI In / 5D MPE Controller ]
-                                         │
-                                         ▼
-                     ┌───────────────────────────────────────┐
-                     │     Polyphonic MPE Voice Manager      │
-                     │   - Voice Allocation (16 voices)      │
-                     │   - Per-note Pressure, Slide, Bend    │
-                     └───────────────────┬───────────────────┘
-                                         │
-       ┌─────────────────────────────────┴─────────────────────────────────┐
-       ▼                                                                   ▼
-┌──────────────┐                  (Voices 2 to 15)                  ┌──────────────┐
-│ KhaenVoice 1 │ ◄────────────────────────────────────────────────► │ KhaenVoice 16│
-└──────┬───────┘                                                    └──────┬───────┘
-       │                                                                   │
-       └─────────────────────────────────┬─────────────────────────────────┘
-                                         ▼
-                 ┌──────────────────────────────────────────────┐
-                 │       PHYSICAL MODELING FREE-REED DSP        │
-                 │ ┌──────────────────────────────────────────┐ │
-                 │ │ 1. Hirschberg Fluid Excitation           │ │
-                 │ │    Pressure differential dP & Flow Q(t)  │ │
-                 │ ├──────────────────────────────────────────┤ │
-                 │ │ 2. Non-Linear Tongue Dynamics ODE        │ │
-                 │ │    d^2y/dt^2 + 2g*dy/dt + w0^2*y = F(t)  │ │
-                 │ ├──────────────────────────────────────────┤ │
-                 │ │ 3. Thiran 1st-Order Allpass Interpolator │ │
-                 │ │    D(z) Fractional Delay Tuning          │ │
-                 │ ├──────────────────────────────────────────┤ │
-                 │ │ 4. Dual Digital Waveguide Pipe           │ │
-                 │ │    P+(n) Forward & P-(n) Backward Waves  │ │
-                 │ ├──────────────────────────────────────────┤ │
-                 │ │ 5. Radiation Loss & Material Damping     │ │
-                 │ │    H_rad(z) Pipe Termination Filter      │ │
-                 │ └──────────────────────────────────────────┘ │
-                 └───────────────────────┬──────────────────────┘
-                                         │  (Stereo Voice Bus Sum)
-                                         ▼
-                 ┌──────────────────────────────────────────────┐
-                 │            POST-PROCESSING FX SUITE          │
-                 │ ┌──────────────────────────────────────────┐ │
-                 │ │ 1. Analog Tape Delay                     │ │
-                 │ │    Wow/Flutter, Saturation, Ping-Pong    │ │
-                 │ ├──────────────────────────────────────────┤ │
-                 │ │ 2. Overlap-Add (OLA) Pitch Harmonizer    │ │
-                 │ │    Microtonal Shifter (+/-12 Semitones)  │ │
-                 │ ├──────────────────────────────────────────┤ │
-                 │ │ 3. 3-Mode Granular Crystallizer          │ │
-                 │ │    Mode 0: Reverse | 1: Pitch | 2: Freeze│ │
-                 │ ├──────────────────────────────────────────┤ │
-                 │ │ 4. Algorithmic Stereo Diffusion Reverb   │ │
-                 │ └──────────────────────────────────────────┘ │
-                 └───────────────────────┬──────────────────────┘
-                                         │
-                                         ▼
-                 ┌──────────────────────────────────────────────┐
-                 │            MASTER OUTPUT & MONITOR           │
-                 │  * Soft-Clipping Safety Limiter              │
-                 │  * Vector Oscilloscope Waveform Visualizer   │
-                 └───────────────────────┬──────────────────────┘
-                                         │
-                                         ▼
-                              [ Stereo Audio Output ]
+                       [ MIDI 2.0 / 5D MPE Controller / Keyswitches ]
+                                             │
+                                             ▼
+                         ┌───────────────────────────────────────┐
+                         │     Polyphonic MPE Voice Manager      │
+                         │   - Voice Allocation (16 voices)      │
+                         │   - Continuous Breath Pressure (Z)    │
+                         │   - Timbral Slide & Lip Damping (Y)   │
+                         │   - Microtonal Pitch Glissando (X)    │
+                         │   - Keyswitches: C1 (Exh), D1 (Inh)   │
+                         └───────────────────┬───────────────────┘
+                                             │
+           ┌─────────────────────────────────┴─────────────────────────────────┐
+           ▼                                                                   ▼
+    ┌──────────────┐                  (Voices 2 to 15)                  ┌──────────────┐
+    │ KhaenVoice 1 │ ◄────────────────────────────────────────────────► │ KhaenVoice 16│
+    └──────┬───────┘                                                    └──────┬───────┘
+           │                                                                   │
+           └─────────────────────────────────┬─────────────────────────────────┘
+                                             ▼
+        ┌─────────────────────────────────────────────────────────────────────────────┐
+        │                 ADVANCED PHYSICAL MODELING ENGINE (DSP)                     │
+        │                                                                             │
+        │ ┌─────────────────────────────────────────────────────────────────────────┐ │
+        │ │ 1. CONTINUOUS RESPIRATORY LUNG ENGINE (The Khaen Modus Operandi)        │ │
+        │ │    - Inhale (Suction) <──> Exhale (Blow) Seamless Acoustic Cycle        │ │
+        │ │    - Bass Drone Suction Lock (Midi <= 60 snap to negative Inhale)       │ │
+        │ │    - Auto-Inhale Riff Alternation & Negative Suction Chiff Friction     │ │
+        │ ├─────────────────────────────────────────────────────────────────────────┤ │
+        │ │ 2. HUNT-CROSSLEY NONLINEAR COLLISION & ARTICULATION DYNAMICS            │ │
+        │ │    - Dissipative Tongue Force: f_tg = k_tg * [y_tg - y]^1.2 * (1+r*v)   │ │
+        │ │    - 4 Articulation Modes: Legato | Portato | Staccato (Choke) | Slap   │ │
+        │ │    - Bamboo fingerhole acoustic pop & reed inertia flick transients     │ │
+        │ ├─────────────────────────────────────────────────────────────────────────┤ │
+        │ │ 3. FREE-REED APERTURE & CANTILEVER NONLINEAR EXCITATION                 │ │
+        │ │    - Free-reed slit flow velocity: u(t) = v_reed / (1 + 0.18*v^2)       │ │
+        │ │    - Multi-Harmonic Spectrum (k=1..28) with Aero-elastic Micro-Jitter   │ │
+        │ │    - Viscothermal boundary loss in bamboo: alpha_v ~ sqrt(k*f0)/D       │ │
+        │ ├─────────────────────────────────────────────────────────────────────────┤ │
+        │ │ 4. 5-STAGE ACOUSTIC CAVITY RESONATORS & VOCAL TRACT FORMANT FILTER     │ │
+        │ │    * Tao Windchest Body (320-380 Hz) & Sympathetic Chamber Resonator    │ │
+        │ │    * Traditional Lao Bamboo Pipe Chimney (1050-1450 Hz)                 │ │
+        │ │    * Bronze Reed Cantilever Eigenmodes (~6.27 f0 & ~17.5 f0)            │ │
+        │ │    * Vocal Tract Oral Cavity Resonator (280 Hz [u] to 2600 Hz [i])      │ │
+        │ └─────────────────────────────────────────────────────────────────────────┘ │
+        └──────────────────────────────────────┬──────────────────────────────────────┘
+                                               │ (Stereo Polyphonic Bus Sum)
+                                               ▼
+        ┌─────────────────────────────────────────────────────────────────────────────┐
+        │                           STUDIO FX PROCESSOR RACK                          │
+        │ ┌──────────────────────┬──────────────────────┬───────────────────────────┐ │
+        │ │ 1. Analog Tape Delay │ 2. Pitch Harmonizer  │ 3. Granular Crystallizer  │ │
+        │ │    Wow, Flutter,     │    Real-Time OLA     │    Reverse Echoes,        │ │
+        │ │    Saturation Drive  │    Microtonal Shift  │    Pitch Shimmer & Freeze │ │
+        │ └──────────────────────┴──────────────────────┴───────────────────────────┘ │
+        │ ┌─────────────────────────────────────────────────────────────────────────┐ │
+        │ │ 4. Algorithmic Stereo Diffusion Reverb (5 Lao Acoustic Sacred Spaces)   │ │
+        │ │    Wat Phu | Luang Prabang | Tham Kong Lor | That Luang | Mekong Grotto │ │
+        │ └─────────────────────────────────────────────────────────────────────────┘ │
+        └──────────────────────────────────────┬──────────────────────────────────────┘
+                                               │
+                                               ▼
+        ┌─────────────────────────────────────────────────────────────────────────────┐
+        │                          MASTER OUTPUT & MONITOR                            │
+        │  * Analog Soft-Clipping Safety Limiter                                      │
+        │  * High-Resolution Vector Oscilloscope Display                              │
+        │  * Responsive MIDI & Breath Velocity LED Indicators                         │
+        └──────────────────────────────────────┬──────────────────────────────────────┘
+                                               │
+                                               ▼
+                                    [ Stereo Audio Output ]
 ```
 
 ---
@@ -427,8 +435,31 @@ Khaen/
 
 ---
 
+## 🔬 Scientific & Acoustic Foundations
+
+The physical modeling implementation of Khaen is built directly upon peer-reviewed acoustic research on free-reed dynamics, woodwind articulation, and nonlinear collision mechanics:
+
+1. **Pàmies-Vilà, M., Hofmann, A., & Chatziioannou, V. (2018)**  
+   *Analysis of Articulation in Single-Reed Woodwind Instruments.*  
+   *Frontiers in Psychology / MDW University of Music and Performing Arts Vienna.*  
+   - Provided empirical tongue-reed contact force profiles, pressure drop dynamics during tonguing, and attack/decay envelope contours implemented in Khaen's 4 articulation modes.
+
+2. **Chatziioannou, V. & van Walstijn, M. (2020)**  
+   *Energy Conserving Formulation of Nonlinear Collisions with Application to Musical Instruments.*  
+   *Journal of New Music Research / Taylor & Francis.*  
+   - Formulated the **Hunt-Crossley** nonlinear collision contact model ($f_{tg} = k_{tg} [y_{tg}-y]^\alpha (1 + r_{tg}\dot{y})$) utilized in `FreeReedModel` for physically accurate tongue-damping and reed slap dynamics.
+
+3. **Cottingham, J. P., & Miller, R. D.**  
+   *The Asian Free-Reed Mouth Organs: Acoustics of the Khaen, Sheng, and Sho.*  
+   - Documented the coupling between free-reed brass cantilevers and open-ended bamboo digital waveguides, symmetric inward/outward flow oscillation under bidirectional breath pressure, and Tao windchest formant resonances.
+
+4. **Acoustics of Free-Reed Organ Pipes & Lengüetas Libres**  
+   - Detailed viscothermal wall damping in cylindrical bamboo columns ($\alpha_v \propto \sqrt{f}/D$) and non-linear aeroacoustic flow limitation across the reed aperture.
+
+---
+
 ## License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-*Crafted with passion for physical modeling synthesis and traditional world instruments.* 🎋
+*Crafted with passion for physical modeling synthesis, acoustics research, and traditional Lao heritage.* 🎋

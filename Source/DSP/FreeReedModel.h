@@ -31,6 +31,7 @@ public:
     //==========================================================================
     enum class Material { Bamboo, AgedBamboo, Jade, Brass, PVC, DarkWood, Metal };
     enum class BreathDirection { Exhale, Inhale };
+    enum class Articulation { Legato = 0, Portato = 1, Staccato = 2, SlapTongue = 3 };
 
     //==========================================================================
     struct Parameters
@@ -44,6 +45,11 @@ public:
         float suctionBite     = 0.65f;   // [0..1] — intensity of inhale suction chiff, scoop & chest boom
         Material material     = Material::Bamboo;
         bool  autoInhaleRiff  = true;    // Auto-alternate breath direction on riffs & pulses
+
+        // Hunt-Crossley Articulation & Vocal Tract Parameters (Chatziioannou et al. 2019, Pàmies-Vilà et al. 2020)
+        Articulation articulation = Articulation::Legato;
+        float tongueContactMs = 35.0f;   // [10.0..100.0 ms] duration of tongue damping contact
+        float vocalTract      = 0.50f;   // [0..1] oral cavity impedance tuning / vowel formants [u -> o -> a -> e -> i]
     };
 
     //==========================================================================
@@ -171,11 +177,12 @@ private:
 
     //==========================================================================
     // Acoustic Body Formants & Filters
-    PeakFilter     m_formantChest;    // F1: Windchest Tao cavity
-    PeakFilter     m_formantPipe;     // F2: Bamboo chimney column
-    PeakFilter     m_formantReed;     // F3: Bronze reed buzz
-    PeakFilter     m_sympatheticTao;  // Sympathetic wooden windchest cavity body resonance
-    BandpassFilter m_chiffFilter;     // Suction chiff air friction (2.5 - 6.5 kHz)
+    PeakFilter     m_formantChest;      // F1: Windchest Tao cavity
+    PeakFilter     m_formantPipe;       // F2: Bamboo chimney column
+    PeakFilter     m_formantReed;       // F3: Bronze reed buzz
+    PeakFilter     m_formantVocalTract; // F_VT: Upstream Oral Cavity / Vocal Tract Resonator (Pàmies-Vilà et al. 2020)
+    PeakFilter     m_sympatheticTao;    // Sympathetic wooden windchest cavity body resonance
+    BandpassFilter m_chiffFilter;       // Suction chiff air friction (2.5 - 6.5 kHz)
     DCBlocker      m_dcBlocker;
 
     // Global shared respiratory state
@@ -189,6 +196,16 @@ private:
     float m_inhaleBlend      = 0.f;   // [0.0 = pure Exhale .. 1.0 = pure Inhale]
     float m_suctionTransient = 0.f;   // Decaying suction pitch scoop [1.0 -> 0.0]
     float m_suctionDecayRate = 0.005f;
+
+    // Hunt-Crossley Nonlinear Collision & Articulation Damping (Chatziioannou et al. 2019)
+    float m_tongueContactTimer     = 0.f;   // Samples remaining of tongue contact
+    float m_articulationTimer      = -1.f;  // Note auto-choke duration timer in samples (Staccato/SlapTongue)
+    float m_articulationTotalSamples= 0.f;
+    float m_portatoDip             = 0.f;   // Portato initial re-articulation pressure dip
+    float m_effectiveDamping       = 1.0f;  // Dynamic damping modifier gamma(t)
+    float m_effectiveStiffness     = 1.0f;  // Dynamic stiffness modifier k(t)
+    float m_slapPrePressure        = 0.f;   // Pre-pressurized chamber level for slap-tongue
+    float m_tongueForce            = 0.f;   // Hunt-Crossley dissipative contact force
 
     // Mechanical Transient (Bamboo fingerhole pop & bronze reed inertia flick)
     float m_mechanicalPopLevel = 0.f;

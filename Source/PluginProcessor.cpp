@@ -33,6 +33,14 @@ APVTS::ParameterLayout KhaenAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.65f));
     params.add(std::make_unique<juce::AudioParameterBool>("autoInhaleRiff", "Auto-Riff Inhale/Exhale", true));
 
+    // ── Hunt-Crossley Articulation & Vocal Tract (IWK/MDW Vienna Research) ─────
+    juce::StringArray articulations { "Legato", "Portato", "Staccato", "Slap Tongue" };
+    params.add(std::make_unique<juce::AudioParameterChoice>("articulation", "Articulation", articulations, 0));
+    params.add(std::make_unique<juce::AudioParameterFloat>("tongueContact", "Tongue Contact (ms)",
+        juce::NormalisableRange<float>(10.0f, 100.0f, 0.5f), 35.0f));
+    params.add(std::make_unique<juce::AudioParameterFloat>("vocalTract", "Vocal Tract Formant",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.50f));
+
     // ── Macros ────────────────────────────────────────────────────────────────
     params.add(std::make_unique<juce::AudioParameterFloat>("macroAir",        "Air",
         juce::NormalisableRange<float>(0.f, 1.f, 0.01f), 0.50f));
@@ -126,6 +134,9 @@ KhaenAudioProcessor::KhaenAudioProcessor()
     m_pBreathSpeed     = m_apvts.getRawParameterValue("breathSpeed");
     m_pSuctionBite     = m_apvts.getRawParameterValue("suctionBite");
     m_pAutoInhaleRiff  = m_apvts.getRawParameterValue("autoInhaleRiff");
+    m_pArticulation    = m_apvts.getRawParameterValue("articulation");
+    m_pTongueContact   = m_apvts.getRawParameterValue("tongueContact");
+    m_pVocalTract      = m_apvts.getRawParameterValue("vocalTract");
 
     m_pMacroAir        = m_apvts.getRawParameterValue("macroAir");
     m_pMacroEmbouchure = m_apvts.getRawParameterValue("macroEmbouchure");
@@ -230,6 +241,11 @@ FreeReedModel::Parameters KhaenAudioProcessor::buildPhysicsParams() const
     p.breathSpeedHz  = m_pBreathSpeed ? m_pBreathSpeed->load() : 1.20f;
     p.suctionBite    = m_pSuctionBite ? m_pSuctionBite->load() : 0.65f;
     p.autoInhaleRiff = (m_pAutoInhaleRiff && m_pAutoInhaleRiff->load() > 0.5f);
+
+    int artIdx = m_pArticulation ? static_cast<int>(m_pArticulation->load()) : 0;
+    p.articulation   = static_cast<FreeReedModel::Articulation>(juce::jlimit(0, 3, artIdx));
+    p.tongueContactMs= m_pTongueContact ? m_pTongueContact->load() : 35.0f;
+    p.vocalTract     = m_pVocalTract ? m_pVocalTract->load() : 0.50f;
 
     return p;
 }
