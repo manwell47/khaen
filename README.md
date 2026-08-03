@@ -4,7 +4,7 @@
 
 # 🎋 Khaen — Free-Reed Physical Modeling Synthesizer
 
-> **Next-generation digital waveguide synthesizer inspired by the traditional Lao & Isan bamboo mouth organ (*Khaen*).**  
+> **Next-generation digital waveguide physical modeling synthesizer inspired by the traditional Lao & Isan bamboo mouth organ (*Khaen*).**  
 > *Engineered in C++17 with JUCE 8 · Full MPE Polyphonic Expression · VST3 / AU / Standalone*
 
 ---
@@ -14,7 +14,6 @@
   <img src="https://img.shields.io/badge/C%2B%2B-17-blue.svg" alt="C++17" />
   <img src="https://img.shields.io/badge/CMake-3.22%2B-blueviolet.svg" alt="CMake" />
   <img src="https://img.shields.io/badge/MIDI-MPE%20Polyphonic-success.svg" alt="MPE" />
-  <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS-lightgrey.svg" alt="Platforms" />
   <img src="https://img.shields.io/badge/Formats-VST3%20%7C%20AU%20%7C%20Standalone-informational.svg" alt="Formats" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
 </p>
@@ -23,17 +22,18 @@
 
 ## Table of Contents
 - [Overview](#overview)
-- [Plugin Formats & How to Use](#plugin-formats--how-to-use)
-  - [1. Standalone Application](#1-standalone-application)
+- [Plugin Formats & DAW Integration](#plugin-formats--daw-integration)
+  - [1. Standalone Application & Audio Interfaces](#1-standalone-application--audio-interfaces)
   - [2. VST3 Plugin](#2-vst3-plugin)
-  - [3. AU (Audio Unit) Plugin for macOS / Apple](#3-au-audio-unit-plugin-for-macos--apple)
+  - [3. Audio Unit (AU) Plugin](#3-audio-unit-au-plugin)
+  - [4. Avid Pro Tools Integration](#4-avid-pro-tools-integration)
+- [DSP Physical Modeling Architecture](#dsp-physical-modeling-architecture)
 - [Building from Source](#building-from-source)
   - [Prerequisites](#prerequisites)
   - [Windows Build](#windows-build)
   - [macOS Build](#macos-build)
-- [DSP Physical Model Architecture](#dsp-physical-model-architecture)
 - [Built-in Presets](#built-in-presets)
-- [Effects Chain](#effects-chain)
+- [Effects Processor Chain](#effects-processor-chain)
 - [MPE Expression Mapping](#mpe-expression-mapping)
 - [Project Structure](#project-structure)
 - [License](#license)
@@ -42,114 +42,160 @@
 
 ## Overview
 
-The **Khaen** (แคน) is a traditional free-reed mouth organ of Lao origin, known for its rich harmonic spectrum, singing continuous breath textures, and microtonal vocal-like glissandi.
+The **Khaen** (แคน) is a traditional free-reed mouth organ of Lao origin, famed for its rich harmonic spectrum, continuous breath-driven drones, and microtonal vocal-like pitch glissandi.
 
-This plugin accurately simulates the complex physics of free reeds coupled to resonant acoustic pipe waveguides in real-time, delivering an expressive, organic virtual instrument ready for modern music production and sound design.
+This plugin physical model simulates the hydrodynamics of free-reed brass tongues coupled to acoustic digital waveguides in real-time, delivering an organic, highly responsive virtual instrument for modern music production, film scoring, and sound design.
 
 ### Key Highlights
-- **16-Voice MPE Engine**: Per-note continuous breath pressure, polyphonic pitch glissando, and timbral slide control.
-- **Physical Modeling Synthesis**: Hirschberg hydrodynamic non-linear reed excitation, dual digital waveguides, and fractional delay lines with Thiran allpass interpolation.
-- **Dynamic Materials**: Morph between Bamboo, Aged Bamboo, Jade, Brass, Dark Wood, PVC, and Synthetic resonators.
-- **Integrated FX Processor**: Analog tape delay with wow/flutter, overlap-add pitch harmonizer, 3-mode granular crystallizer, and algorithmic reverb.
-- **Vector Copper UI**: Real-time oscilloscope waveform visualizer, copper rotary knobs, and responsive MIDI activity monitors.
+- **16-Voice MPE Polyphonic Engine**: Per-note continuous breath pressure modulation, polyphonic pitch glissando, and timbral slide response.
+- **Advanced Physical Modeling DSP**: Hirschberg fluid-dynamic reed excitation, dual digital waveguides, and fractional delay lines with Thiran 1st-order allpass interpolation.
+- **Dynamic Acoustic Resonators**: Morph between Bamboo, Aged Bamboo, Jade, Brass, Dark Wood, PVC, and Synthetic materials.
+- **Studio-Grade FX Suite**: Tape delay with low/high motor flutter, Overlap-Add (OLA) pitch harmonizer, 3-mode granular crystallizer, and algorithmic spatial diffusion reverb.
+- **Vector Copper UI**: Real-time oscilloscope waveform display, vector copper rotary controls, and responsive MIDI activity indicators.
 
 ---
 
-## Plugin Formats & How to Use
+## Plugin Formats & DAW Integration
 
-Khaen is built simultaneously into three formats: **Standalone**, **VST3**, and **AU (Audio Unit)**.
+Khaen is compiled natively across three major formats: **Standalone**, **VST3**, and **Audio Unit (AU)**.
 
 ```
-                  ┌───────────────────────────────┐
-                  │          KHAEN ENGINE         │
-                  └───────────────┬───────────────┘
-                                  │
-         ┌────────────────────────┼────────────────────────┐
-         ▼                        ▼                        ▼
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│    STANDALONE    │    │      VST3        │    │    AU (APPLE)    │
-│  (.exe / .app)   │    │  (Cross-Platform)│    │     (macOS)      │
-│ Play without DAW │    │ Cubase/Ableton/FL│    │Logic/GarageBand  │
-└──────────────────┘    └──────────────────┘    └──────────────────┘
+                           ┌───────────────────────────────┐
+                           │          KHAEN ENGINE         │
+                           └───────────────┬───────────────┘
+                                           │
+         ┌─────────────────────────────────┼─────────────────────────────────┐
+         ▼                                 ▼                                 ▼
+┌──────────────────┐             ┌──────────────────┐             ┌──────────────────┐
+│    STANDALONE    │             │      VST3        │             │ AUDIO UNIT (AU)  │
+│  (.exe / .app)   │             │  (Cross-Platform)│             │  (macOS System)  │
+│ ASIO / CoreAudio │             │DAWs / Pro Tools  │             │ Logic / GarageB. │
+└──────────────────┘             └──────────────────┘             └──────────────────┘
 ```
 
 ---
 
-### 1. Standalone Application
+### 1. Standalone Application & Audio Interfaces
 
-The **Standalone** version is a self-contained executable that runs directly on your computer without requiring any Digital Audio Workstation (DAW).
+The **Standalone** binary is a dedicated, low-overhead application designed for live performance, studio tracking, and sound design without launching a DAW.
 
-#### Best For:
-- Live performance, practice, and sound design sessions.
-- Immediate plug-and-play with your USB / MIDI / MPE keyboard.
+#### Audio Interface & Driver Compatibility:
+- **Low-Latency Drivers**: Fully compatible with ASIO 2.0 (Windows), CoreAudio (macOS), and ALSA/JACK (Linux).
+- **Professional Hardware**: Optimized for multi-channel audio interfaces (Universal Audio Apollo, RME Fireface/HDSPe, Focusrite Scarlett/Clarett, MOTU, Audient, Antelope Audio, SSL, Behringer X32/Wing, etc.).
+- **High Sample-Rate Processing**: Supports 44.1 kHz, 48 kHz, 88.2 kHz, 96 kHz, and 192 kHz sample rates with ultra-low buffer configurations (32 to 256 samples).
 
-#### How to Launch:
-- **Windows**: Run `build\Khaen_artefacts\Release\Standalone\Khaen.exe` or simply double-click [Khaen_Standalone.bat](./Khaen_Standalone.bat).
+#### Launching:
+- **Windows**: Run `build\Khaen_artefacts\Release\Standalone\Khaen.exe` or double-click [Khaen_Standalone.bat](./Khaen_Standalone.bat).
 - **macOS**: Open `build/Khaen_artefacts/Release/Standalone/Khaen.app`.
-
-#### Configuration:
-1. Click **Options / Settings** (or the Audio/MIDI gear icon).
-2. Select your **Audio Device** (ASIO / WASAPI on Windows, CoreAudio on macOS).
-3. Set your preferred sample rate (44.1 kHz, 48 kHz, or 96 kHz) and buffer size (64 to 256 samples for lowest latency).
-4. Enable your MIDI controller under **Active MIDI Inputs**.
 
 ---
 
 ### 2. VST3 Plugin
 
-**VST3** (Virtual Studio Technology 3) is the cross-platform industry standard plugin format developed by Steinberg, supported by virtually all modern DAWs on Windows, macOS, and Linux.
+**VST3** (Virtual Studio Technology 3) is the cross-platform industry standard plugin format developed by Steinberg, supported by major digital audio workstations worldwide.
 
 #### Supported DAWs:
-Ableton Live, FL Studio, REAPER, Steinberg Cubase / Nuendo, Bitwig Studio, PreSonus Studio One, Cakewalk by BandLab, Reason, Renoise, Tracktion Waveform, and more.
+Ableton Live, FL Studio, REAPER, Steinberg Cubase / Nuendo, Bitwig Studio, PreSonus Studio One, BandLab Cakewalk, Reason, Renoise, Tracktion Waveform, and Avid Pro Tools (via VST3 host).
 
-#### Installation Paths:
-- **Windows (64-bit)**:
-  ```powershell
-  # Copy Khaen.vst3 into the standard Windows VST3 directory:
-  Copy-Item -Recurse "build\Khaen_artefacts\Release\VST3\Khaen.vst3" `
-            "C:\Program Files\Common Files\VST3\"
-  ```
-- **macOS**:
-  ```bash
-  # System-wide installation:
-  sudo cp -R "build/Khaen_artefacts/Release/VST3/Khaen.vst3" "/Library/Audio/Plug-Ins/VST3/"
-  # Or User-only installation:
-  cp -R "build/Khaen_artefacts/Release/VST3/Khaen.vst3" "~/Library/Audio/Plug-Ins/VST3/"
-  ```
-
-#### How to Use in your DAW:
-1. Open your DAW and rescan plugins if needed.
-2. Insert **Khaen** as a virtual instrument on a MIDI / Instrument track.
-3. If using an MPE controller (Roli Seaboard, LinnStrument, Keith McMillen K-Board, Ableton Push 3, Sensel Morph), enable **MPE Mode** in your DAW track inspector.
+#### Standard Installation Directories:
+- **Windows (64-bit)**: `C:\Program Files\Common Files\VST3\Khaen.vst3`
+- **macOS**: `/Library/Audio/Plug-Ins/VST3/Khaen.vst3` or `~/Library/Audio/Plug-Ins/VST3/Khaen.vst3`
 
 ---
 
-### 3. AU (Audio Unit) Plugin for macOS / Apple
+### 3. Audio Unit (AU) Plugin
 
-**Audio Unit (AU / `.component`)** is Apple's native, system-level audio plugin architecture for macOS. It delivers deep integration with macOS CoreAudio and Apple Silicon (M1/M2/M3/M4) hardware.
+**Audio Unit (AU / `.component`)** is the native system audio plugin format integrated directly into macOS CoreAudio.
 
-#### Supported Apple DAWs & Hosts:
+#### Supported Hosts:
 - **Apple Logic Pro** (Logic Pro X / 11)
 - **GarageBand**
-- **Apple MainStage**
-- **Ableton Live** (macOS AudioUnit version)
+- **MainStage**
+- **Ableton Live** (macOS AU host mode)
 - **REAPER** (macOS)
-- **Studio One** (macOS AU host)
+- **PreSonus Studio One** (macOS)
 
-#### Installation Path:
-```bash
-# Copy the compiled AU component to macOS Components folder:
-sudo cp -R "build/Khaen_artefacts/Release/AU/Khaen.component" "/Library/Audio/Plug-Ins/Components/"
+#### Standard Installation Directory:
+- **macOS**: `/Library/Audio/Plug-Ins/Components/Khaen.component`
+
+---
+
+### 4. Avid Pro Tools Integration
+
+For **Avid Pro Tools** (Pro Tools Ultimate, Pro Tools Studio, Pro Tools Artist):
+
+- **Native VST3 Support**: Pro Tools 2023.6+ natively supports VST3 plugins directly on AAX track slots.
+- **AAX Hosting / Wrappers**: For legacy Pro Tools systems, Khaen loads seamlessly via standard plugin wrappers (Blue Cat's PatchWork, Metaplugin, or DDMF).
+
+---
+
+## DSP Physical Modeling Architecture
+
 ```
-
-#### How to Use in Logic Pro / GarageBand:
-1. In Logic Pro, create a new **Software Instrument** track.
-2. Under the Instrument slot, navigate to:  
-   `AU Instruments` $\rightarrow$ `KhaenAudio` $\rightarrow$ `Khaen` $\rightarrow$ `Stereo`.
-3. To verify Apple AU validation:
-   ```bash
-   auval -v aumu Khen KhAu
-   ```
+                          [ MIDI In / 5D MPE Controller ]
+                                         │
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │   Polyphonic MPE Voice Manager        │
+                     │  - Voice Allocation (up to 16 voices) │
+                     │  - Per-note Pressure, Slide, Bend     │
+                     └───────────────────┬───────────────────┘
+                                         │
+       ┌─────────────────────────────────┴─────────────────────────────────┐
+       ▼                                                                   ▼
+┌──────────────┐                  (Voices 2 to 15)                  ┌──────────────┐
+│ KhaenVoice 1 │ ◄────────────────────────────────────────────────► │ KhaenVoice 16│
+└──────┬───────┘                                                    └──────┬───────┘
+       │                                                                   │
+       └─────────────────────────────────┬─────────────────────────────────┘
+                                         ▼
+                 ┌──────────────────────────────────────────────┐
+                 │       PHYSICAL MODELING FREE-REED DSP        │
+                 │ ┌──────────────────────────────────────────┐ │
+                 │ │ 1. Hirschberg Fluid Excitation           │ │
+                 │ │    Pressure differential ΔP & Flow Q(t)  │ │
+                 │ ├──────────────────────────────────────────┤ │
+                 │ │ 2. Non-Linear Tongue Dynamics ODE        │ │
+                 │ │    ÿ + 2γẏ + ω₀²y = F(t, ΔP)             │ │
+                 │ ├──────────────────────────────────────────┤ │
+                 │ │ 3. Thiran 1st-Order Allpass Interpolator │ │
+                 │ │    D(z) Fractional Delay Tuning          │ │
+                 │ ├──────────────────────────────────────────┤ │
+                 │ │ 4. Dual Digital Waveguide Pipe           │ │
+                 │ │    P⁺(n) Forward & P⁻(n) Backward Waves  │ │
+                 │ ├──────────────────────────────────────────┤ │
+                 │ │ 5. Radiation Loss & Material Damping     │ │
+                 │ │    H_rad(z) Pipe Termination Filter      │ │
+                 │ └──────────────────────────────────────────┘ │
+                 └───────────────────────┬──────────────────────┘
+                                         │  (Stereo Voice Bus Sum)
+                                         ▼
+                 ┌──────────────────────────────────────────────┐
+                 │            POST-PROCESSING FX SUITE          │
+                 │ ┌──────────────────────────────────────────┐ │
+                 │ │ Analog Tape Delay                        │ │
+                 │ │ (Wow/Flutter, Saturation, Stereo Ping-Pong)│ │
+                 │ ├──────────────────────────────────────────┤ │
+                 │ │ Overlap-Add (OLA) Pitch Harmonizer       │ │
+                 │ │ (Microtonal Shifter ±12 Semitones)       │ │
+                 │ ├──────────────────────────────────────────┤ │
+                 │ │ 3-Mode Granular Crystallizer             │ │
+                 │ │ (0: Reverse Echo | 1: Shimmer | 2: Freeze) │ │
+                 │ ├──────────────────────────────────────────┤ │
+                 │ │ Algorithmic Stereo Diffusion Reverb      │ │
+                 │ └──────────────────────────────────────────┘ │
+                 └───────────────────────┬──────────────────────┘
+                                         │
+                                         ▼
+                 ┌──────────────────────────────────────────────┐
+                 │            MASTER OUTPUT & MONITOR           │
+                 │ ├── Soft-Clipping Safety Limiter            │
+                 │ └── Vector Oscilloscope Waveform Visualizer  │
+                 └───────────────────────┬──────────────────────┘
+                                         │
+                                         ▼
+                              [ Stereo Audio Output ]
+```
 
 ---
 
@@ -159,9 +205,9 @@ sudo cp -R "build/Khaen_artefacts/Release/AU/Khaen.component" "/Library/Audio/Pl
 
 | Tool | Minimum Version | Check Command | Purpose |
 |------|-----------------|---------------|---------|
-| **CMake** | 3.22+ | `cmake --version` | Build system generator |
-| **Git** | Any recent | `git --version` | JUCE 8 FetchContent dependency |
-| **Visual Studio** (Windows) | 2022 (C++ Desktop) | `vswhere` | MSVC compiler & toolchain |
+| **CMake** | 3.22+ | `cmake --version` | Cross-platform build generator |
+| **Git** | Any recent | `git --version` | JUCE 8 source dependency manager |
+| **Visual Studio** (Windows) | 2022 (C++ Desktop) | `vswhere` | MSVC compiler & Windows SDK |
 | **Xcode / Command Line Tools** (macOS) | 14.0+ | `clang --version` | Apple Clang compiler |
 | **Python** (Optional) | 3.8+ | `python --version` | LiteLLM routing proxy & prototype |
 
@@ -182,24 +228,24 @@ Run the automated PowerShell build script:
 .\build.ps1 -Debug
 ```
 
-*Or build manually with CMake:*
+*Or configure manually with CMake:*
 
 ```powershell
 cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
 ```
 
-The compiled binaries will be placed in:
-- VST3: `build\Khaen_artefacts\Release\VST3\Khaen.vst3`
-- Standalone: `build\Khaen_artefacts\Release\Standalone\Khaen.exe`
-- Tests: `build\Tests\Release\KhaenDspTest.exe`
+Build outputs:
+- **VST3**: `build\Khaen_artefacts\Release\VST3\Khaen.vst3`
+- **Standalone**: `build\Khaen_artefacts\Release\Standalone\Khaen.exe`
+- **Tests**: `build\Tests\Release\KhaenDspTest.exe`
 
 ---
 
 ### macOS Build
 
 ```bash
-# Configure for Xcode / Clang with Universal Binary support:
+# Configure for Xcode / Clang with Universal Binary support (Apple Silicon + Intel):
 cmake -B build -G "Unix Makefiles" \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
@@ -208,67 +254,18 @@ cmake -B build -G "Unix Makefiles" \
 cmake --build build --config Release -j$(sysctl -n hw.ncpu)
 ```
 
-The compiled artifacts will be located in `build/Khaen_artefacts/Release/`:
+Build outputs in `build/Khaen_artefacts/Release/`:
 - `VST3/Khaen.vst3`
 - `AU/Khaen.component`
 - `Standalone/Khaen.app`
 
 ---
 
-## DSP Physical Model Architecture
-
-```
-                                  [ MIDI In / MPE ]
-                                          │
-                                          ▼
-                               ┌─────────────────────┐
-                               │   KhaenSynthesiser  │ (16 Polyphonic Voices)
-                               └──────────┬──────────┘
-                                          │
-               ┌──────────────────────────┴──────────────────────────┐
-               ▼                                                     ▼
-      ┌─────────────────┐                                   ┌─────────────────┐
-      │  KhaenVoice 1   │  ... (Voice 2 - 15) ...           │  KhaenVoice 16  │
-      └────────┬────────┘                                   └────────┬────────┘
-               │                                                     │
-               └──────────────────────────┬──────────────────────────┘
-                                          ▼
-                               ┌─────────────────────┐
-                               │   FreeReedModel     │
-                               │  ├── Hirschberg Ex. │
-                               │  ├── Dual Waveguide │
-                               │  ├── Thiran Allpass │
-                               │  └── Radiation Loss │
-                               └──────────┬──────────┘
-                                          ▼
-                               ┌─────────────────────┐
-                               │      TapeDelay      │ (Wow/Flutter, Ping-Pong)
-                               └──────────┬──────────┘
-                                          ▼
-                               ┌─────────────────────┐
-                               │      Harmonizer     │ (OLA Pitch Shift ±12 semi)
-                               └──────────┬──────────┘
-                                          ▼
-                               ┌─────────────────────┐
-                               │ GranularCrystallizer│ (Reverse, Pitch FB, Freeze)
-                               └──────────┬──────────┘
-                                          ▼
-                               ┌─────────────────────┐
-                               │    ReverbEngine     │ (Spatial Diffusion)
-                               └──────────┬──────────┘
-                                          ▼
-                               ┌─────────────────────┐
-                               │  Stereo Audio Out   │
-                               └─────────────────────┘
-```
-
----
-
 ## Built-in Presets
 
-Khaen includes 10 factory presets tailored to explore the full timbral range from authentic ethnic acoustic modeling to futuristic ambient pads:
+Khaen includes 10 factory presets tailored to explore the full timbral spectrum from acoustic physical accuracy to dark ambient drones:
 
-| # | Preset Name | Resonator Material | Character & Sonic Profile |
+| # | Preset Name | Resonator Material | Sonic Profile & Character |
 |---|-------------|--------------------|---------------------------|
 | **1** | **Classic Khaen** | Bamboo | Traditional Lao mouth organ, warm acoustic reed timbre. |
 | **2** | **Breath of Laos** | Aged Bamboo | Airy, spacious with subtle organic breath turbulence. |
@@ -283,7 +280,7 @@ Khaen includes 10 factory presets tailored to explore the full timbral range fro
 
 ---
 
-## Effects Chain
+## Effects Processor Chain
 
 1. **Analog Tape Delay**:
    - Delay time (1 ms to 2000 ms), feedback, stereo ping-pong crossfeed.
