@@ -1,0 +1,23 @@
+model_list:
+  - model_name: dsp-heavy-model
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: "os.environ/OPENAI_API_KEY"
+      api_base: "https://api.openai.com/v1"
+
+  - model_name: default-fast-model
+    litellm_params:
+      model: gemini/gemini-1.5-flash
+      api_key: "os.environ/GEMINI_API_KEY"
+
+router_settings:
+  routing_strategy: usage-based-routing
+  num_retries: 3
+  timeout: 60
+  retry_after: 5
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  master_key: "sk-your-master-key-here"

@@ -1,0 +1,82 @@
+# ==============================================================================
+# Khaen VST3 - Git Ignore Configuration
+# ==============================================================================
+
+# Build directories & CMake artifacts
+build/
+Builds/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+*.ninja
+*.ninja_deps
+*.ninja_log
+CompileFlags.txt
+
+# Binary outputs & plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.vst3/
+*.component/
+*.app/
+*.obj
+*.o
+*.pdb
+*.idb
+*.ilk
+*.lib
+*.a
+*.exp
+*.res
+
+# Visual Studio / MSVC / IDE files
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+*.user
+*.ncb
+*.sdf
+*.opensdf
+.vscode/
+.idea/
+
+# JuceHeader generated files & external modules
+JuceLibraryCode/
+modules/
+
+# Logs, PIDs and LiteLLM runtime files
+*.log
+*.err
+.proxy_pid
+litellm.log
+litellm.err
+litellm_config.yaml
+
+# Local backups and recovery snapshots
+recover/
+recover2/
+
+# Large temporary scratch videos & test audio captures
+reference_full.wav
+reference_09_27.wav
+scratch_video*
+*.mp4
+*.webm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+Desktop.ini

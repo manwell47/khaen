@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<magic>
+  <Styles>
+    <Style name="default">
+      <Classes>
+        <main background-color="FF101215" background-gradient="radial" background-color2="FF000000"/>
+        <title font-size="32" text-color="FFD4AF37" justification="centred"/>
+        <panel background-color="FF1A1D22" border="1" border-color="FF2A2E36" margin="5" padding="10" radius="8"/>
+        <paneltitle font-size="14" text-color="FF8892A0" justification="centred" margin="2"/>
+        <rotaryslider slider-type="rotary" slider-textbox="textbox-below" lookAndFeel="FoleysFinest" rotary-fill="FFD4AF37"/>
+        <plotview background-color="FF0A0A0C" border="1" border-color="FF2A2E36" radius="5" margin="5" plot-fill-color="00000000"/>
+      </Classes>
+      <Types>
+        <Slider slider-type="rotary" slider-textbox="textbox-below" lookAndFeel="FoleysFinest" rotary-fill="FFD4AF37"/>
+        <Label font-size="14" text-color="FFDDDDDD" justification="centred"/>
+      </Types>
+    </Style>
+  </Styles>
+  <View id="root" class="main" display="flexbox" flex-direction="column" min-width="1000" min-height="700">
+    <View height="60" display="flexbox" flex-direction="row" justify-content="space-between" margin="10">
+      <Label text="KHAEN" class="title" flex-grow="1"/>
+    </View>
+    <View display="flexbox" flex-direction="row" flex-grow="1" padding="10">
+      <View class="panel" display="flexbox" flex-direction="column" max-width="220" min-width="180">
+        <Label text="PHYSICAL MODEL" class="paneltitle"/>
+        <Slider parameter="reedStiffness" caption="Stiffness" class="rotaryslider"/>
+        <Slider parameter="boreDiameter" caption="Bore" class="rotaryslider"/>
+        <Slider parameter="blowPressure" caption="Pressure" class="rotaryslider"/>
+      </View>
+      <View display="flexbox" flex-direction="column" flex-grow="1">
+        <Plot source="oscilloscope" class="plotview" plot-color="FFD4AF37" flex-grow="1"/>
+        <Plot source="analyser" class="plotview" plot-color="FF00E5FF" flex-grow="1"/>
+      </View>
+      <View class="panel" display="flexbox" flex-direction="column" max-width="220" min-width="180">
+        <Label text="EFFECTS" class="paneltitle"/>
+        <Slider parameter="delayTime" caption="Dly Time" class="rotaryslider"/>
+        <Slider parameter="delayFeedback" caption="Dly Fbk" class="rotaryslider"/>
+        <Slider parameter="delayMix" caption="Dly Mix" class="rotaryslider"/>
+        <Slider parameter="harmonShift" caption="Harm Shift" class="rotaryslider"/>
+        <Slider parameter="harmonMix" caption="Harm Mix" class="rotaryslider"/>
+        <Slider parameter="crystalGrainMs" caption="Cryst Grain" class="rotaryslider"/>
+        <Slider parameter="crystalMix" caption="Cryst Mix" class="rotaryslider"/>
+      </View>
+    </View>
+  </View>
+</magic>
