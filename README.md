@@ -50,7 +50,9 @@
 - [Built-in Presets](#built-in-presets)
 - [Effects Processor Chain](#effects-processor-chain)
 - [MPE Expression Mapping](#mpe-expression-mapping)
+- [MIDI CC Mapping & MIDI Learn Matrix](#midi-cc-mapping--midi-learn-matrix)
 - [Project Structure](#project-structure)
+- [Scientific & Acoustic Foundations](#-scientific--acoustic-foundations)
 - [License](#license)
 
 ---
@@ -393,6 +395,41 @@ Khaen is designed from the ground up for **MIDI Polyphonic Expression (MPE)**:
 
 ---
 
+## MIDI CC Mapping & MIDI Learn Matrix
+
+Khaen features a flexible **MIDI Continuous Controller (CC)** matrix enabling direct hardware integration with master keyboards, wind controllers (EWI, Aerophone), and expression pedals, alongside an interactive **MIDI Learn** engine:
+
+<p align="center">
+  <img src="khaen_vst_midimap.png" alt="Khaen MIDI Mapping & Learn Matrix" width="85%" />
+</p>
+
+### Factory Default MIDI CC Assignments
+
+| MIDI CC | Controller Name | Target DSP Parameter | Musical Function & Response |
+|:-------:|:----------------|:---------------------|:----------------------------|
+| **CC 1** | Modulation Wheel | `breath` | Dynamic continuous breath airflow velocity & volume |
+| **CC 2** | Breath Controller | `breath` | Direct input for hardware wind controllers (EWI, Yamaha WX, Aerophone) |
+| **CC 7** | Channel Volume | `volume` | Master plugin output level (0 to 1) |
+| **CC 10** | Pan | `pan` | Stereo panorama placement |
+| **CC 11** | Expression | `breath` | Dynamic swell and aero-elastic pressure modulation |
+| **CC 64** | Sustain Pedal | `drone_lock` | Bass drone suction lock & continuous reed oscillation sustain |
+| **CC 71** | Sound Controller 2 (Resonance) | `resonance` | Bamboo pipe resonator Q factor & resonance peak sharpness |
+| **CC 74** | Sound Controller 5 (Brightness) | `cutoff` | Digital waveguide lowpass filter cutoff frequency |
+| **CC 76** | Sound Controller 7 | `damping` | Viscothermal boundary layer wall dissipation damping |
+| **CC 77** | Sound Controller 8 | `slap_stiffness` | Hunt-Crossley collision tongue slap & reed damping stiffness |
+| **CC 91** | Reverb Send Level | `reverb_mix` | Laos Sacred Space convolution / diffusion reverb wet mix |
+| **CC 92** | Effect 1 Depth | `delay_mix` | Analog tape delay wet mix |
+| **CC 93** | Chorus / Effect 2 Depth | `harmonizer_mix` | Real-time OLA pitch harmonizer wet mix |
+| **CC 94** | Effect 4 Depth | `cryst_mix` | Granular crystallizer reverse / shimmer grain cloud wet mix |
+
+### Real-Time MIDI Learn & Context Controls
+
+- **Interactive Learning**: Right-click on any copper rotary knob in the interface to trigger the context menu and select **"Learn MIDI CC"**. Turn any physical slider or knob on your MIDI hardware controller to map it instantly.
+- **Visual Feedback**: Knobs in learn mode display an animated pulsating golden halo. The header **MIDI Activity LED** flashes green on every incoming message.
+- **Mapping Matrix Window**: Click the **"MIDI MAP"** button in the header toolbar to open the comprehensive MIDI CC Matrix table, view all active assignments, or unmap controls individually.
+
+---
+
 ## Project Structure
 
 ```
@@ -403,34 +440,38 @@ Khaen/
 ├── Khaen_Standalone.bat        # Direct standalone app launcher
 ├── start_proxy.ps1             # Optional LiteLLM proxy manager
 ├── litellm_config.example.yaml # Model routing configuration template
-├── Khaen_v1.0.0_Windows.zip    # Pre-compiled executable & VST3 package
-├── README.md                   # Project documentation
+├── Khaen_v1.0.0_Windows.zip    # Pre-compiled executable & VST3 package (Release v1.0.0)
+├── README.md                   # Project documentation & DSP specifications
 │
 ├── Source/
-│   ├── PluginProcessor.h/cpp   # Audio processor & APVTS parameter tree
-│   ├── PluginEditor.h/cpp      # Main GUI editor & custom look-and-feel
+│   ├── PluginProcessor.h/cpp   # Audio processor, APVTS parameter tree & MIDI dispatch
+│   ├── PluginEditor.h/cpp      # Main GUI editor, vector look-and-feel & dialog manager
 │   │
 │   ├── DSP/
-│   │   ├── FreeReedModel.h/cpp      # Hirschberg reed & digital waveguide physics
-│   │   ├── KhaenVoice.h/cpp         # Polyphonic MPE voice handler
-│   │   └── KhaenSynthesiser.h/cpp   # Synthesiser engine & voice management
+│   │   ├── FreeReedModel.h/cpp      # Hirschberg reed, Hunt-Crossley collision & digital waveguides
+│   │   ├── KhaenVoice.h/cpp         # Polyphonic 16-voice MPE voice handler
+│   │   └── KhaenSynthesiser.h/cpp   # Synthesiser engine, drone lock & voice management
+│   │
+│   ├── MIDI/
+│   │   └── MidiCCManager.h/cpp      # MIDI CC routing matrix, MIDI Learn & XML mapping state
 │   │
 │   ├── FX/
-│   │   ├── TapeDelay.h/cpp          # Tape delay with wow/flutter & saturation
-│   │   ├── Harmonizer.h/cpp         # OLA pitch shifter
-│   │   ├── GranularCrystallizer.h/cpp # Multi-mode granular processor
-│   │   └── ReverbEngine.h/cpp       # Algorithmic stereo reverb
+│   │   ├── TapeDelay.h/cpp          # Tape delay with wow/flutter & saturation drive
+│   │   ├── Harmonizer.h/cpp         # Real-time OLA pitch shifter & microtonal detune
+│   │   ├── GranularCrystallizer.h/cpp # Multi-mode granular processor & glitch freeze
+│   │   └── ReverbEngine.h/cpp       # Algorithmic stereo diffusion reverb (5 Sacred Spaces)
 │   │
 │   ├── Presets/
 │   │   └── PresetManager.h/cpp      # 10 Factory presets & snapshot manager
 │   │
 │   └── UI/
-│       ├── CustomKnob.h/cpp         # Vector copper rotary knobs
-│       ├── WaveVisualizer.h/cpp     # Real-time audio oscilloscope
-│       └── MidiLed.h                # Responsive MIDI activity indicator
+│       ├── CustomKnob.h/cpp         # Vector copper rotary knobs with right-click MIDI Learn
+│       ├── WaveVisualizer.h/cpp     # Real-time audio oscilloscope & aerodynamic airflow monitor
+│       ├── MidiLed.h                # Responsive MIDI activity indicator & status LED
+│       └── MidiMappingDialog.h/cpp  # Interactive MIDI CC matrix table & assignment dialog
 │
 └── Tests/
-    └── DspTest.cpp             # Unit tests for physical model stability
+    └── DspTest.cpp             # 13 Automated DSP, physics & MIDI CC unit tests
 ```
 
 ---
