@@ -1,34 +1,34 @@
 @echo off
-:: khaen_gui.bat — Lanza la GUI del prototipo Khaen
-:: Doble-click para abrir
+:: khaen_gui.bat — Launch the Python prototype GUI for Khaen
+:: Double-click to open
 echo.
-echo  Khaen Physical Model Synthesizer - Prototipo Portable
-echo  =====================================================
+echo  Khaen Physical Model Synthesizer - Portable Prototype
+echo  ======================================================
 echo.
 
-:: Verificar numpy
+:: Check numpy
 python -c "import numpy" 2>nul
 if %errorlevel% neq 0 (
-    echo  Instalando dependencias...
+    echo  Installing dependencies...
     pip install numpy scipy sounddevice
 )
 
-:: Verificar sounddevice
+:: Check sounddevice
 python -c "import sounddevice" 2>nul
 if %errorlevel% neq 0 (
-    echo  Instalando sounddevice...
+    echo  Installing sounddevice...
     pip install sounddevice
 )
 
-echo  Lanzando GUI...
+echo  Launching GUI...
 echo.
 python "%~dp0khaen_prototype.py" --gui
 
 if %errorlevel% neq 0 (
     echo.
-    echo  La GUI fallo. Intentando modo consola + guardar WAV...
+    echo  GUI launch failed. Falling back to console mode + saving WAV...
     python "%~dp0khaen_prototype.py" --save --preset 0
     echo.
-    echo  Archivo guardado en la carpeta actual.
+    echo  Audio file saved in current directory.
     pause
 )

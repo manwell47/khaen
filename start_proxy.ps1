@@ -1,11 +1,17 @@
-# start_proxy.ps1 — Levanta LiteLLM Proxy para el proyecto Khaen VST3
-# Puerto: 4000 | Estrategia: usage-based-routing
-# Uso: .\start_proxy.ps1 [-Background]
+# start_proxy.ps1 — Launch LiteLLM Proxy for the Khaen VST3 project
+# Port: 4000 | Strategy: usage-based-routing
+# Usage: .\start_proxy.ps1 [-Background]
 
 param([switch]$Background)
 
 $configPath = Join-Path $PSScriptRoot "litellm_config.yaml"
+$examplePath = Join-Path $PSScriptRoot "litellm_config.example.yaml"
 $logPath    = Join-Path $PSScriptRoot "litellm.log"
+
+if (-not (Test-Path $configPath) -and (Test-Path $examplePath)) {
+    Write-Host "[!] 'litellm_config.yaml' not found. Creating from template..." -ForegroundColor Yellow
+    Copy-Item $examplePath $configPath
+}
 
 # ── Ensure pip-installed scripts are on PATH ─────────────────────────────────
 $pyScripts = "$env:APPDATA\Python\Python314\Scripts"
@@ -24,15 +30,15 @@ if (-not (Get-Command litellm -ErrorAction SilentlyContinue)) {
 Write-Host "🎋 Khaen VST3 — LiteLLM Proxy" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor DarkGray
 
-# Verificar que litellm está instalado
+# Check if litellm is installed
 if (-not (Get-Command litellm -ErrorAction SilentlyContinue)) {
-    Write-Host "⚠  LiteLLM no encontrado. Instalando..." -ForegroundColor Yellow
+    Write-Host "⚠  LiteLLM not found. Installing..." -ForegroundColor Yellow
     pip install "litellm[proxy]" --quiet
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ Error instalando LiteLLM. Ejecuta: pip install 'litellm[proxy]'"
+        Write-Error "❌ Error installing LiteLLM. Run: pip install 'litellm[proxy]'"
         exit 1
     }
-    Write-Host "✅ LiteLLM instalado correctamente." -ForegroundColor Green
+    Write-Host "✅ LiteLLM installed successfully." -ForegroundColor Green
 }
 
 Write-Host "📄 Config: $configPath" -ForegroundColor Gray
@@ -51,29 +57,20 @@ if (-not $litellmExe -or -not (Test-Path $litellmExe)) {
 }
 
 if ($Background) {
-    # Lanzar en background con UTF-8 forzado (evita UnicodeEncodeError en cp1252)
+    # Launch in background with UTF-8 forced
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName    = $litellmExe
     $psi.Arguments   = "--config `"$configPath`" --port 4000"
     $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError  = $true
-    $psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8"
-    $psi.EnvironmentVariables["PYTHONUTF8"]       = "1"
+    $psi.RedirectStandardError = $true
+    $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+    $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+
     $proc = [System.Diagnostics.Process]::Start($psi)
-    Start-Sleep 2
-    if ($proc.HasExited) {
-        Write-Host "❌ Proxy falló al iniciar. Ver $logPath.err" -ForegroundColor Red
-    } else {
-        Write-Host "🚀 Proxy activo (PID: $($proc.Id)) — http://localhost:4000" -ForegroundColor Green
-        Write-Host "   Para detenerlo: Stop-Process -Id $($proc.Id)" -ForegroundColor DarkGray
-        $proc.Id | Out-File -FilePath (Join-Path $PSScriptRoot ".proxy_pid") -Force
-    }
+    $proc.Id | Out-File (Join-Path $PSScriptRoot ".proxy_pid")
+    Write-Host "🚀 LiteLLM Proxy running in background (PID: $($proc.Id))" -ForegroundColor Green
 } else {
-    # Lanzar en foreground visible
-    Write-Host "🚀 Iniciando proxy (Ctrl+C para detener)..." -ForegroundColor Green
-    $env:PYTHONIOENCODING = "utf-8"
-    $env:PYTHONUTF8 = "1"
     & $litellmExe --config $configPath --port 4000
 }
