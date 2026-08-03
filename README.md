@@ -9,7 +9,7 @@
   <a href="https://manwell47.github.io/khaen/" target="_blank">
     <img src="https://img.shields.io/badge/🎮%20Play%20Live%20Online-Browser%20Demo-40c4ff?style=for-the-badge" alt="Play Live Online" />
   </a>
-  <a href="https://github.com/manwell47/khaen/releases/download/v1.0.0/Khaen_v1.0.0_Windows.zip">
+  <a href="https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip">
     <img src="https://img.shields.io/badge/📥%20Direct%20Download-Khaen.exe%20%2B%20VST3%20(.zip)-d4af37?style=for-the-badge" alt="Direct Download Zip" />
   </a>
 </p>
@@ -33,8 +33,8 @@
 
 > **No coding or build tools required for music producers and musicians!**
 
-- 🎮 **[Play Live Online in your Browser](https://manwell47.github.io/khaen/)**: Try the interactive Web Audio physical modeling synth demo directly in Chrome, Edge, Safari, or Firefox without installing anything.
-- 📦 **[Download Khaen v1.0.0 for Windows (.zip)](https://github.com/manwell47/khaen/releases/download/v1.0.0/Khaen_v1.0.0_Windows.zip)**: Includes pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
+- 📦 **[Download Khaen v1.0.0 for Windows (.zip)](https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip)**: Click to download pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
+- 🎮 **[Play Live Online in your Browser](https://manwell47.github.io/khaen/)**: Interactive Web Audio physical modeling synth demo in Chrome, Edge, Safari, or Firefox without installing anything.
 
 ---
 
