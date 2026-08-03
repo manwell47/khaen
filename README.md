@@ -22,6 +22,7 @@
 
 ## Table of Contents
 - [Overview](#overview)
+- [User Interface & Controls](#user-interface--controls)
 - [Plugin Formats & DAW Integration](#plugin-formats--daw-integration)
   - [1. Standalone Application & Audio Interfaces](#1-standalone-application--audio-interfaces)
   - [2. VST3 Plugin](#2-vst3-plugin)
@@ -56,6 +57,16 @@ This plugin physical model simulates the hydrodynamics of free-reed brass tongue
 - **Dynamic Acoustic Resonators**: Morph between Bamboo, Aged Bamboo, Jade, Brass, Dark Wood, PVC, and Synthetic materials.
 - **Studio-Grade FX Suite**: Tape delay with low/high motor flutter, Overlap-Add (OLA) pitch harmonizer, 3-mode granular crystallizer, and algorithmic spatial diffusion reverb.
 - **Vector Copper UI**: Real-time oscilloscope waveform display, vector copper rotary controls, and responsive MIDI activity indicators.
+
+---
+
+## User Interface & Controls
+
+Khaen features a dark, vector copper interface centered around a real-time oscilloscope displaying aerodynamic breath flow, note pitch tracking, and dual **Inhale (Suction) / Exhale (Blow)** airflow states.
+
+<p align="center">
+  <img src="khaen_vst_gui.png" alt="Khaen VST3 User Interface" width="90%" />
+</p>
 
 ---
 
@@ -270,7 +281,7 @@ Build outputs in `build/Khaen_artefacts/Release/`:
 Khaen includes 10 factory presets tailored to explore the full timbral spectrum from acoustic physical accuracy to dark ambient drones:
 
 <p align="center">
-  <img src="Gemini_Generated_Image_6183g16183g16183.png" alt="Khaen Factory Presets & Timbral Morphing" width="65%" />
+  <img src="presets.png" alt="Khaen Factory Presets & Timbral Morphing" width="65%" />
 </p>
 
 | # | Preset Name | Resonator Material | Sonic Profile & Character |
@@ -290,18 +301,59 @@ Khaen includes 10 factory presets tailored to explore the full timbral spectrum 
 
 ## Effects Processor Chain
 
-1. **Analog Tape Delay**:
-   - Delay time (1 ms to 2000 ms), feedback, stereo ping-pong crossfeed.
-   - Low-frequency wow and high-frequency flutter tape motor simulation with soft-clipping tape drive.
-2. **Pitch Harmonizer**:
-   - Overlap-Add (OLA) micro-pitch and interval shifter ($\pm 12$ semitones).
-   - Preserves formant resonance while creating lush octaves and fifths.
-3. **Granular Crystallizer**:
-   - **Mode 0 (Reverse Echo)**: Backward grain playback for psychedelic textures.
-   - **Mode 1 (Pitch Shimmer)**: Octave-shifted feedback loop with grain diffusion.
-   - **Mode 2 (Glitch Freeze)**: Infinite micro-loop freeze with randomized grain windows.
-4. **Algorithmic Reverb**:
-   - Smooth stereo diffusion with adjustable room size, damping, and decay.
+Khaen embeds four studio-grade DSP effect modules integrated into the lower control rack:
+
+### 1. Analog Tape Delay
+Simulates vintage magnetic tape motor fluctuations, soft-clipping tape drive, and ping-pong crossfeed routing.
+
+<p align="center">
+  <img src="khaen_vst_delay.png" alt="Analog Tape Delay Module" width="80%" />
+</p>
+
+- **Parameters**: Time (1–2000 ms), Feedback, Mix, Wow (LF motor instability), Flutter (HF capstan flutter), Ping-Pong toggle.
+
+---
+
+### 2. Pitch Harmonizer
+An Overlap-Add (OLA) real-time pitch shifter providing microtonal offset and interval transposition ($\pm 12$ semitones).
+
+<p align="center">
+  <img src="khaen_vst_harmonizer.png" alt="Pitch Harmonizer Module" width="80%" />
+</p>
+
+- **Parameters**: Shift ($\pm 12$ semitones), Fine tuning (cents), Stereo Spread, Mix.
+
+---
+
+### 3. Granular Crystallizer
+A multi-mode granular engine for pitch-shifted grain clouds, reverse echoes, and frozen micro-loops.
+
+<p align="center">
+  <img src="khaen_vst_crystallizer.png" alt="Granular Crystallizer Module" width="80%" />
+</p>
+
+- **Modes**:
+  - **Mode 0 (Reverse Echo)**: Backward grain playback.
+  - **Mode 1 (Pitch Shimmer)**: Pitch-shifted feedback loop.
+  - **Mode 2 (Glitch Freeze)**: Infinite granular buffer freeze.
+- **Parameters**: Grain size, Delay, Feedback, Mix, Pitch, Freeze button.
+
+---
+
+### 4. Algorithmic Reverb (Laos Space)
+A high-density stereo diffusion reverb featuring custom acoustic impulse responses representing iconic Lao acoustic environments.
+
+<p align="center">
+  <img src="khaen_vst_reverb.png" alt="Laos Space Reverb Module" width="80%" />
+</p>
+
+- **Laos Space Presets**:
+  - *Wat Phu (Ancient Temple)*
+  - *Luang Prabang Sanctuary*
+  - *Tham Kong Lor (Giant Cave)*
+  - *That Luang Pavilion*
+  - *Mekong River Grotto*
+- **Parameters**: Room Size, Decay (RT60), Damping, Width, Mix.
 
 ---
 
