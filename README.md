@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="Gemini_Generated_Image_6183g16183g16183.png" alt="Khaen VST3 Physical Model Synthesizer" width="30%" />
+  <img src="khaen.png" alt="Khaen VST3 Physical Model Synthesizer" width="50%" />
 </p>
 
 ---
@@ -45,6 +45,10 @@
 The **Khaen** (แคน) is a traditional free-reed mouth organ of Lao origin, famed for its rich harmonic spectrum, continuous breath-driven drones, and microtonal vocal-like pitch glissandi.
 
 This plugin physical model simulates the hydrodynamics of free-reed brass tongues coupled to acoustic digital waveguides in real-time, delivering an organic, highly responsive virtual instrument for modern music production, film scoring, and sound design.
+
+<p align="center">
+  <img src="Breath of Laos.png" alt="Breath of Laos Resonator Model" width="60%" />
+</p>
 
 ### Key Highlights
 - **16-Voice MPE Polyphonic Engine**: Per-note continuous breath pressure modulation, polyphonic pitch glissando, and timbral slide response.
@@ -136,9 +140,9 @@ For **Avid Pro Tools** (Pro Tools Ultimate, Pro Tools Studio, Pro Tools Artist):
                                          │
                                          ▼
                      ┌───────────────────────────────────────┐
-                     │   Polyphonic MPE Voice Manager        │
-                     │  - Voice Allocation (up to 16 voices) │
-                     │  - Per-note Pressure, Slide, Bend     │
+                     │     Polyphonic MPE Voice Manager      │
+                     │   - Voice Allocation (16 voices)      │
+                     │   - Per-note Pressure, Slide, Bend    │
                      └───────────────────┬───────────────────┘
                                          │
        ┌─────────────────────────────────┴─────────────────────────────────┐
@@ -153,16 +157,16 @@ For **Avid Pro Tools** (Pro Tools Ultimate, Pro Tools Studio, Pro Tools Artist):
                  │       PHYSICAL MODELING FREE-REED DSP        │
                  │ ┌──────────────────────────────────────────┐ │
                  │ │ 1. Hirschberg Fluid Excitation           │ │
-                 │ │    Pressure differential ΔP & Flow Q(t)  │ │
+                 │ │    Pressure differential dP & Flow Q(t)  │ │
                  │ ├──────────────────────────────────────────┤ │
                  │ │ 2. Non-Linear Tongue Dynamics ODE        │ │
-                 │ │    ÿ + 2γẏ + ω₀²y = F(t, ΔP)             │ │
+                 │ │    d^2y/dt^2 + 2g*dy/dt + w0^2*y = F(t)  │ │
                  │ ├──────────────────────────────────────────┤ │
                  │ │ 3. Thiran 1st-Order Allpass Interpolator │ │
                  │ │    D(z) Fractional Delay Tuning          │ │
                  │ ├──────────────────────────────────────────┤ │
                  │ │ 4. Dual Digital Waveguide Pipe           │ │
-                 │ │    P⁺(n) Forward & P⁻(n) Backward Waves  │ │
+                 │ │    P+(n) Forward & P-(n) Backward Waves  │ │
                  │ ├──────────────────────────────────────────┤ │
                  │ │ 5. Radiation Loss & Material Damping     │ │
                  │ │    H_rad(z) Pipe Termination Filter      │ │
@@ -173,24 +177,24 @@ For **Avid Pro Tools** (Pro Tools Ultimate, Pro Tools Studio, Pro Tools Artist):
                  ┌──────────────────────────────────────────────┐
                  │            POST-PROCESSING FX SUITE          │
                  │ ┌──────────────────────────────────────────┐ │
-                 │ │ Analog Tape Delay                        │ │
-                 │ │ (Wow/Flutter, Saturation, Stereo Ping-Pong)│ │
+                 │ │ 1. Analog Tape Delay                     │ │
+                 │ │    Wow/Flutter, Saturation, Ping-Pong    │ │
                  │ ├──────────────────────────────────────────┤ │
-                 │ │ Overlap-Add (OLA) Pitch Harmonizer       │ │
-                 │ │ (Microtonal Shifter ±12 Semitones)       │ │
+                 │ │ 2. Overlap-Add (OLA) Pitch Harmonizer    │ │
+                 │ │    Microtonal Shifter (+/-12 Semitones)  │ │
                  │ ├──────────────────────────────────────────┤ │
-                 │ │ 3-Mode Granular Crystallizer             │ │
-                 │ │ (0: Reverse Echo | 1: Shimmer | 2: Freeze) │ │
+                 │ │ 3. 3-Mode Granular Crystallizer          │ │
+                 │ │    Mode 0: Reverse | 1: Pitch | 2: Freeze│ │
                  │ ├──────────────────────────────────────────┤ │
-                 │ │ Algorithmic Stereo Diffusion Reverb      │ │
+                 │ │ 4. Algorithmic Stereo Diffusion Reverb   │ │
                  │ └──────────────────────────────────────────┘ │
                  └───────────────────────┬──────────────────────┘
                                          │
                                          ▼
                  ┌──────────────────────────────────────────────┐
                  │            MASTER OUTPUT & MONITOR           │
-                 │ ├── Soft-Clipping Safety Limiter            │
-                 │ └── Vector Oscilloscope Waveform Visualizer  │
+                 │  * Soft-Clipping Safety Limiter              │
+                 │  * Vector Oscilloscope Waveform Visualizer   │
                  └───────────────────────┬──────────────────────┘
                                          │
                                          ▼
@@ -264,6 +268,10 @@ Build outputs in `build/Khaen_artefacts/Release/`:
 ## Built-in Presets
 
 Khaen includes 10 factory presets tailored to explore the full timbral spectrum from acoustic physical accuracy to dark ambient drones:
+
+<p align="center">
+  <img src="Gemini_Generated_Image_6183g16183g16183.png" alt="Khaen Factory Presets & Timbral Morphing" width="65%" />
+</p>
 
 | # | Preset Name | Resonator Material | Sonic Profile & Character |
 |---|-------------|--------------------|---------------------------|
