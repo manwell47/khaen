@@ -19,7 +19,27 @@ void WaveVisualizer::resized() { repaint(); }
 
 void WaveVisualizer::timerCallback()
 {
+    updateDisplay();
+}
+
+void WaveVisualizer::updateDisplay()
+{
     collectSamples();
+    repaint();
+}
+
+void WaveVisualizer::setDisplayBuffer (const float* samples, int numSamples, float rms)
+{
+    if (samples != nullptr && numSamples > 0)
+    {
+        int count = std::min(numSamples, kDisplaySamples);
+        for (int i = 0; i < count; ++i)
+            m_displayBuf[i] = samples[i];
+        for (int i = count; i < kDisplaySamples; ++i)
+            m_displayBuf[i] = 0.0f;
+        m_displayWrite = 0;
+    }
+    m_peakDecay = juce::jlimit(0.0f, 1.0f, rms);
     repaint();
 }
 
@@ -27,7 +47,7 @@ void WaveVisualizer::timerCallback()
 void WaveVisualizer::collectSamples()
 {
     // Drain audio processor ring buffer into display buffer
-    for (int i = 0; i < 16; ++i) // collect up to 16 samples per frame
+    for (int i = 0; i < 64; ++i) // collect up to 64 samples per frame for responsive rendering
     {
         float s = m_proc.getVisualizerSample();
         m_displayBuf[m_displayWrite] = s;

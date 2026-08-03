@@ -27,6 +27,9 @@ public:
     void paint (juce::Graphics& g) override;
     void resized() override;
 
+    void setDisplayBuffer (const float* samples, int numSamples, float rms);
+    void updateDisplay();
+
 private:
     void timerCallback() override;
 

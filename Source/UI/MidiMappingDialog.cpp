@@ -73,10 +73,10 @@ void MidiMappingDialog::RowComponent::updateState()
 
 void MidiMappingDialog::RowComponent::paint (juce::Graphics& g)
 {
-    auto b = getLocalBounds().toFloat().reduced(4.0f, 2.0f);
+    auto b = getLocalBounds().toFloat().reduced(3.0f, 1.0f);
 
     // Row category pill
-    auto catArea = b.removeFromLeft(76.0f).reduced(2.0f, 3.0f);
+    auto catArea = b.removeFromLeft(52.0f).reduced(1.0f, 2.0f);
     juce::Colour catCol = item.category == "MACRO"   ? kCopper
                         : item.category == "PHYSICS" ? kGold
                         : item.category == "DELAY"   ? kCyan
@@ -88,13 +88,13 @@ void MidiMappingDialog::RowComponent::paint (juce::Graphics& g)
     g.fillRoundedRectangle(catArea, 3.0f);
     g.setColour(catCol);
     g.drawRoundedRectangle(catArea, 3.0f, 1.0f);
-    g.setFont(juce::Font(9.0f, juce::Font::bold));
+    g.setFont(juce::Font(juce::FontOptions().withHeight(8.5f).withStyle("Bold")));
     g.drawText(item.category, catArea, juce::Justification::centred, false);
 
     // Parameter Name
-    b.removeFromLeft(6.0f);
-    auto nameArea = b.removeFromLeft(180.0f).reduced(2.0f, 0.0f);
-    g.setFont(juce::Font(12.0f, juce::Font::bold));
+    b.removeFromLeft(5.0f);
+    auto nameArea = b.removeFromLeft(130.0f).reduced(2.0f, 0.0f);
+    g.setFont(juce::Font(juce::FontOptions().withHeight(11.0f).withStyle("Bold")));
     g.setColour(kTextPrim);
     g.drawText(item.displayName, nameArea, juce::Justification::centredLeft, true);
 
@@ -102,16 +102,16 @@ void MidiMappingDialog::RowComponent::paint (juce::Graphics& g)
     int cc = m_owner.m_midiCCManager.getCCForParam(item.paramID);
     bool isLearning = m_owner.m_midiCCManager.isLearningParam(item.paramID);
 
-    b.removeFromLeft(6.0f);
-    auto ccArea = b.removeFromLeft(130.0f).reduced(2.0f, 3.0f);
+    b.removeFromLeft(5.0f);
+    auto ccArea = b.removeFromLeft(82.0f).reduced(1.0f, 2.0f);
     if (isLearning)
     {
-        g.setColour(kCyan.withAlpha(0.2f));
+        g.setColour(kCyan.withAlpha(0.25f));
         g.fillRoundedRectangle(ccArea, 3.0f);
         g.setColour(kCyan);
         g.drawRoundedRectangle(ccArea, 3.0f, 1.0f);
-        g.setFont(juce::Font(10.0f, juce::Font::bold));
-        g.drawText("TURN HW KNOB...", ccArea, juce::Justification::centred, false);
+        g.setFont(juce::Font(juce::FontOptions().withHeight(9.5f).withStyle("Bold")));
+        g.drawText("LEARN...", ccArea, juce::Justification::centred, false);
     }
     else if (cc >= 0)
     {
@@ -119,23 +119,23 @@ void MidiMappingDialog::RowComponent::paint (juce::Graphics& g)
         g.fillRoundedRectangle(ccArea, 3.0f);
         g.setColour(kGold);
         g.drawRoundedRectangle(ccArea, 3.0f, 1.0f);
-        g.setFont(juce::Font(11.0f, juce::Font::bold));
+        g.setFont(juce::Font(juce::FontOptions().withHeight(10.5f).withStyle("Bold")));
         g.drawText("CC " + juce::String(cc), ccArea, juce::Justification::centred, false);
     }
     else
     {
         g.setColour(kTextDim.withAlpha(0.6f));
-        g.setFont(juce::Font(11.0f, juce::Font::italic));
-        g.drawText("- Unassigned -", ccArea, juce::Justification::centred, false);
+        g.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Italic")));
+        g.drawText("- Unset -", ccArea, juce::Justification::centred, false);
     }
 }
 
 void MidiMappingDialog::RowComponent::resized()
 {
-    auto b = getLocalBounds().reduced(4, 2);
-    m_clearBtn.setBounds(b.removeFromRight(55).reduced(2, 2));
-    b.removeFromRight(6);
-    m_learnBtn.setBounds(b.removeFromRight(80).reduced(2, 2));
+    auto b = getLocalBounds().reduced(2, 2);
+    m_clearBtn.setBounds(b.removeFromRight(46).reduced(1, 1));
+    b.removeFromRight(4);
+    m_learnBtn.setBounds(b.removeFromRight(62).reduced(1, 1));
 }
 
 //==============================================================================
@@ -153,7 +153,7 @@ MidiMappingDialog::ListContentComponent::ListContentComponent (MidiMappingDialog
 void MidiMappingDialog::ListContentComponent::resized()
 {
     int y = 0;
-    const int rowH = 32;
+    const int rowH = 28;
     for (auto& row : rows)
     {
         row->setBounds(0, y, getWidth(), rowH);
@@ -181,8 +181,8 @@ MidiMappingDialog::MidiMappingDialog (MidiCCManager& midiCCManager)
     addAndMakeVisible(m_saveDefaultBtn);
     addAndMakeVisible(m_loadDefaultBtn);
 
-    m_titleLabel.setText("KHAEN - MIDI CC ASSIGNMENT MATRIX", juce::dontSendNotification);
-    m_titleLabel.setFont(juce::Font(13.5f, juce::Font::bold));
+    m_titleLabel.setText("KHAEN — MIDI CC ASSIGNMENT MATRIX", juce::dontSendNotification);
+    m_titleLabel.setFont(juce::Font(juce::FontOptions().withHeight(12.5f).withStyle("Bold")));
     m_titleLabel.setColour(juce::Label::textColourId, kCopper);
     m_titleLabel.setJustificationType(juce::Justification::centredLeft);
 
@@ -227,7 +227,7 @@ MidiMappingDialog::MidiMappingDialog (MidiCCManager& midiCCManager)
     m_content = std::make_unique<ListContentComponent>(*this, m_paramItems);
     m_viewport.setViewedComponent(m_content.get(), false);
     m_viewport.setScrollBarsShown(true, false);
-    m_viewport.setScrollBarThickness(8);
+    m_viewport.setScrollBarThickness(6);
     addAndMakeVisible(m_viewport);
 
     m_midiCCManager.addListener(this);
@@ -307,9 +307,9 @@ void MidiMappingDialog::paint (juce::Graphics& g)
     g.setColour(juce::Colours::black.withAlpha(0.70f));
     g.fillAll();
 
-    // Centered, compact dialog card (width ~620, height ~540)
-    int cardW = juce::jmin(620, getWidth() - 32);
-    int cardH = juce::jmin(540, getHeight() - 32);
+    // Centered, compact dialog card (width ~460, height ~500)
+    int cardW = juce::jmin(460, getWidth() - 24);
+    int cardH = juce::jmin(500, getHeight() - 24);
     auto card = getLocalBounds().withSizeKeepingCentre(cardW, cardH).toFloat();
 
     // Shadow
@@ -326,34 +326,34 @@ void MidiMappingDialog::paint (juce::Graphics& g)
 
     // Header divider lines
     g.setColour(kPanel.brighter(0.12f));
-    g.drawLine(card.getX(), card.getY() + 44.0f, card.getRight(), card.getY() + 44.0f, 1.0f);
-    g.drawLine(card.getX(), card.getY() + 84.0f, card.getRight(), card.getY() + 84.0f, 1.0f);
+    g.drawLine(card.getX(), card.getY() + 38.0f, card.getRight(), card.getY() + 38.0f, 1.0f);
+    g.drawLine(card.getX(), card.getY() + 72.0f, card.getRight(), card.getY() + 72.0f, 1.0f);
 }
 
 void MidiMappingDialog::resized()
 {
-    int cardW = juce::jmin(620, getWidth() - 32);
-    int cardH = juce::jmin(540, getHeight() - 32);
+    int cardW = juce::jmin(460, getWidth() - 24);
+    int cardH = juce::jmin(500, getHeight() - 24);
     auto card = getLocalBounds().withSizeKeepingCentre(cardW, cardH);
 
-    // Header top row (44px)
-    auto headerRow = card.removeFromTop(44).reduced(14, 6);
-    m_closeBtn.setBounds(headerRow.removeFromRight(28).reduced(0, 2));
+    // Header top row (38px)
+    auto headerRow = card.removeFromTop(38).reduced(12, 5);
+    m_closeBtn.setBounds(headerRow.removeFromRight(24).reduced(0, 1));
     m_titleLabel.setBounds(headerRow);
 
-    // Presets Toolbar (40px)
-    auto toolRow = card.removeFromTop(40).reduced(12, 5);
-    m_stdMidiBtn.setBounds(toolRow.removeFromLeft(195).reduced(2));
-    m_clearAllBtn.setBounds(toolRow.removeFromLeft(80).reduced(2));
-    toolRow.removeFromLeft(8);
-    m_saveDefaultBtn.setBounds(toolRow.removeFromLeft(105).reduced(2));
-    m_loadDefaultBtn.setBounds(toolRow.removeFromLeft(105).reduced(2));
+    // Presets Toolbar (34px)
+    auto toolRow = card.removeFromTop(34).reduced(10, 4);
+    m_stdMidiBtn.setBounds(toolRow.removeFromLeft(98).reduced(2));
+    m_clearAllBtn.setBounds(toolRow.removeFromLeft(68).reduced(2));
+    toolRow.removeFromLeft(6);
+    m_saveDefaultBtn.setBounds(toolRow.removeFromLeft(86).reduced(2));
+    m_loadDefaultBtn.setBounds(toolRow.removeFromLeft(86).reduced(2));
 
     // Viewport for rows
-    m_viewport.setBounds(card.reduced(8, 8));
+    m_viewport.setBounds(card.reduced(6, 6));
     if (m_content)
     {
-        int totalH = static_cast<int>(m_paramItems.size()) * 32;
-        m_content->setBounds(0, 0, m_viewport.getWidth() - 10, totalH);
+        int totalH = static_cast<int>(m_paramItems.size()) * 28;
+        m_content->setBounds(0, 0, m_viewport.getWidth() - 8, totalH);
     }
 }

@@ -10,8 +10,8 @@
 /**
  * MidiCCManager — Real-time MIDI CC Mapping & MIDI Learn Manager
  *
- * Designed for immediate plug-and-play with hardware MIDI USB controllers
- * such as the Akai MPK Mini (MK2/MK3/Plus) and any standard MIDI CC hardware.
+ * Designed for immediate plug-and-play with hardware MIDI USB controllers,
+ * master keyboards, wind controllers (EWI) and standard MIDI CC gear.
  *
  * Thread-safe:
  *  - Real-time audio thread lookup is O(1) lock-free via atomic parameter pointers.

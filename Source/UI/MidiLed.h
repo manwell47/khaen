@@ -15,6 +15,12 @@ public:
         stopTimer();
     }
 
+    void setBrightness (float b)
+    {
+        m_brightness = juce::jlimit(0.0f, 1.0f, b);
+        repaint();
+    }
+
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();

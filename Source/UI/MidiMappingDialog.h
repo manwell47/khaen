@@ -8,7 +8,7 @@
  * MidiMappingDialog — Visual MIDI CC Mapping Matrix Overlay
  *
  * Provides a luxury modal interface to inspect, MIDI-learn, clear,
- * and apply presets (including Akai MPK Mini) for all synth parameters.
+ * and manage standard MIDI CC mappings for all synth parameters.
  */
 class MidiMappingDialog : public juce::Component,
                           public MidiCCManager::Listener
@@ -71,7 +71,7 @@ private:
 
     juce::Label      m_titleLabel;
     juce::TextButton m_closeBtn       { "X" };
-    juce::TextButton m_stdMidiBtn     { "Standard MIDI (1, 2, 11...)" };
+    juce::TextButton m_stdMidiBtn     { "Standard CC" };
     juce::TextButton m_clearAllBtn    { "Clear All" };
     juce::TextButton m_saveDefaultBtn { "Save Default" };
     juce::TextButton m_loadDefaultBtn { "Load Default" };

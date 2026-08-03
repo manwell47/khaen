@@ -37,6 +37,9 @@ public:
     void switchTab (int tabIndex);
     void toggleMidiMappingDialog();
 
+    WaveVisualizer& getWaveVisualizer() { return m_waveVis; }
+    MidiLed&        getMidiLed()        { return m_midiLed; }
+
 private:
     //==========================================================================
     // APVTS attachment helpers

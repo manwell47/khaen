@@ -537,7 +537,7 @@ int main()
     midiMgr.clearAll();
     bool clearedPass = (midiMgr.getCCForParam("reverbMix") == -1);
     processor.setStateInformation(stateBlock.getData(), static_cast<int>(stateBlock.getSize()));
-    bool restoredPass = (midiMgr.getCCForParam("reverbMix") == 44 && midiMgr.getCCForParam("macroAir") == 70);
+    bool restoredPass = (midiMgr.getCCForParam("reverbMix") == 44 && midiMgr.getCCForParam("macroAir") == 11);
     std::cout << "  State Serialization & Restoration -> Cleared: " << (clearedPass ? "YES" : "NO")
               << " | Restored: " << (restoredPass ? "[PASS]" : "[FAIL]") << std::endl;
     if (!restoredPass) midiCcPass = false;
@@ -553,16 +553,42 @@ int main()
 
     if (allTestsPass)
     {
-        std::cout << "\n>>> ALL AUDIO, TAPE DELAY, BYPASS, BREATH & MIDI CC TESTS PASSED! Generating UI snapshots... <<<" << std::endl;
+        std::cout << "\n>>> ALL AUDIO, TAPE DELAY, BYPASS, BREATH & MIDI CC TESTS PASSED! Generating UI snapshots with active signal... <<<" << std::endl;
         
+        processor.loadPreset(0); // Classic Khaen
+        processor.prepareToPlay(44100.0, 512);
+
+        // Synthesize active harmonic audio signal with continuous breath & multi-pipe drone
+        juce::AudioBuffer<float> activeAudioBuf(2, 512);
+        juce::MidiBuffer activeMidiBuf;
+        activeMidiBuf.addEvent(juce::MidiMessage::noteOn(1, 69, (juce::uint8)115), 0); // A4 (440 Hz)
+        activeMidiBuf.addEvent(juce::MidiMessage::noteOn(1, 57, (juce::uint8)105), 0); // A3 Drone (220 Hz)
+        activeMidiBuf.addEvent(juce::MidiMessage::noteOn(1, 76, (juce::uint8)100), 0); // E5 (659 Hz)
+        activeMidiBuf.addEvent(juce::MidiMessage::controllerEvent(1, 1, 118), 0);     // Breath CC 1
+
+        for (int b = 0; b < 30; ++b)
+        {
+            activeAudioBuf.clear();
+            processor.processBlock(activeAudioBuf, activeMidiBuf);
+            activeMidiBuf.clear();
+        }
+
+        float outputRms = activeAudioBuf.getRMSLevel(0, 0, 512);
+        std::cout << "  Active Signal Synthesized -> Peak RMS: " << outputRms << std::endl;
+
         std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
         if (auto* khaenEditor = dynamic_cast<KhaenEditor*>(editor.get()))
         {
             khaenEditor->setSize(1280, 800);
+            khaenEditor->getWaveVisualizer().setDisplayBuffer(activeAudioBuf.getReadPointer(0), 512, std::max(outputRms * 1.6f, 0.72f));
+            khaenEditor->getMidiLed().setBrightness(1.0f);
             
             auto saveSnapshot = [&](int tabIdx, const juce::String& repoFilename, const juce::String& brainFilename)
             {
                 khaenEditor->switchTab(tabIdx);
+                khaenEditor->getWaveVisualizer().setDisplayBuffer(activeAudioBuf.getReadPointer(0), 512, std::max(outputRms * 1.6f, 0.72f));
+                khaenEditor->getMidiLed().setBrightness(1.0f);
+
                 juce::Image img(juce::Image::ARGB, 1280, 800, true);
                 {
                     juce::Graphics g(img);
@@ -582,8 +608,7 @@ int main()
                 };
 
                 writePng(juce::File("c:/APPs/Khaen/" + repoFilename));
-                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/fbc3a685-9415-4985-9286-8ca576a7382c/" + brainFilename));
-                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/e30c6d66-b020-45af-b20a-31bf03030328/" + brainFilename));
+                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/86c01208-1f85-471b-bb1c-7523beb41fc2/" + brainFilename));
             };
 
             saveSnapshot(0, "khaen_vst_delay.png",        "media_ui_delay_tab.png");
@@ -614,110 +639,110 @@ int main()
                     }
                 };
                 writePng(juce::File("c:/APPs/Khaen/khaen_vst_midimap.png"));
-                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/e30c6d66-b020-45af-b20a-31bf03030328/media_ui_midimap.png"));
+                writePng(juce::File("C:/Users/manua/.gemini/antigravity-ide/brain/86c01208-1f85-471b-bb1c-7523beb41fc2/media_ui_midimap.png"));
             }
             khaenEditor->toggleMidiMappingDialog(); // close overlay
+        }
 
-            // ── Render 7-second demonstration WAV imitating Video 0:09 to 0:27 with continuous keyswitch breath rhythm ──
+        // ── Render 7-second demonstration WAV imitating Video 0:09 to 0:27 with continuous keyswitch breath rhythm ──
+        {
+            std::cout << "\n--- Rendering Video 0:09-0:27 Breathing Riff Imitation Audio ---" << std::endl;
+            processor.loadPreset(0); // Classic Khaen
+            processor.prepareToPlay(44100.0, 512);
+
+            const double sampleRate = 44100.0;
+            const int totalSamples = static_cast<int>(7.0 * sampleRate);
+            juce::AudioBuffer<float> renderBuffer(2, totalSamples);
+            renderBuffer.clear();
+
+            // 120 BPM: 1 beat = 0.5s, 1 sixteenth note = 0.125s
+            struct NoteEvent { double timeSec; int note; double durationSec; float velocity; };
+            std::vector<NoteEvent> score;
+
+            // 1. Sustained Drone Chord (Middle Register: C3=48, G3=55, C4=60)
+            score.push_back({ 0.0, 48, 6.8, 0.85f });
+            score.push_back({ 0.0, 55, 6.8, 0.80f });
+            score.push_back({ 0.0, 60, 6.8, 0.85f });
+
+            // 2. Breath Keyswitches (16th-note rhythmic pulsing on C1=24 [Exhale] and D1=26 [Inhale])
+            double sixteenth = 0.125;
+            for (int i = 0; i < 48; ++i)
             {
-                std::cout << "\n--- Rendering Video 0:09-0:27 Breathing Riff Imitation Audio ---" << std::endl;
-                processor.loadPreset(0); // Classic Khaen
-                processor.prepareToPlay(44100.0, 512);
+                double t = i * sixteenth;
+                int ksNote = (i % 2 == 0) ? 24 : 26; // Alternate Exhale / Inhale
+                float vel = (i % 4 == 0) ? 0.95f : 0.75f; // Accent on downbeats
+                score.push_back({ t, ksNote, 0.08, vel });
+            }
 
-                const double sampleRate = 44100.0;
-                const int totalSamples = static_cast<int>(7.0 * sampleRate);
-                juce::AudioBuffer<float> renderBuffer(2, totalSamples);
-                renderBuffer.clear();
+            // 3. Upper Melody (Traditional Lao Molam riff from video 0:09-0:27: A4=69, C5=72, D5=74, E5=76, G5=79)
+            score.push_back({ 0.5, 69, 0.25, 0.9f });  // A4
+            score.push_back({ 0.75, 72, 0.25, 0.9f }); // C5
+            score.push_back({ 1.0, 74, 0.50, 0.95f }); // D5
+            score.push_back({ 1.5, 76, 0.50, 0.95f }); // E5
+            score.push_back({ 2.0, 79, 0.35, 1.0f });  // G5
+            score.push_back({ 2.375, 76, 0.25, 0.9f });// E5
+            score.push_back({ 2.625, 74, 0.35, 0.9f });// D5
+            score.push_back({ 3.0, 72, 0.50, 0.95f }); // C5
+            score.push_back({ 3.5, 69, 0.75, 1.0f });  // A4 (held with suction bite)
+            score.push_back({ 4.5, 74, 0.25, 0.9f });  // D5
+            score.push_back({ 4.75, 76, 0.25, 0.9f }); // E5
+            score.push_back({ 5.0, 79, 0.60, 1.0f });  // G5
+            score.push_back({ 5.75, 76, 0.40, 0.9f }); // E5
+            score.push_back({ 6.25, 72, 0.55, 0.95f });// C5
 
-                // 120 BPM: 1 beat = 0.5s, 1 sixteenth note = 0.125s
-                struct NoteEvent { double timeSec; int note; double durationSec; float velocity; };
-                std::vector<NoteEvent> score;
+            const int blockSize = 512;
+            int currentSample = 0;
 
-                // 1. Sustained Drone Chord (Middle Register: C3=48, G3=55, C4=60)
-                score.push_back({ 0.0, 48, 6.8, 0.85f });
-                score.push_back({ 0.0, 55, 6.8, 0.80f });
-                score.push_back({ 0.0, 60, 6.8, 0.85f });
+            while (currentSample < totalSamples)
+            {
+                int samplesThisBlock = std::min(blockSize, totalSamples - currentSample);
+                juce::AudioBuffer<float> blockBuf(2, samplesThisBlock);
+                blockBuf.clear();
+                juce::MidiBuffer blockMidi;
 
-                // 2. Breath Keyswitches (16th-note rhythmic pulsing on C1=24 [Exhale] and D1=26 [Inhale])
-                double sixteenth = 0.125;
-                for (int i = 0; i < 48; ++i)
+                double blockStartTime = currentSample / sampleRate;
+                double blockEndTime = (currentSample + samplesThisBlock) / sampleRate;
+
+                for (const auto& ev : score)
                 {
-                    double t = i * sixteenth;
-                    int ksNote = (i % 2 == 0) ? 24 : 26; // Alternate Exhale / Inhale
-                    float vel = (i % 4 == 0) ? 0.95f : 0.75f; // Accent on downbeats
-                    score.push_back({ t, ksNote, 0.08, vel });
+                    if (ev.timeSec >= blockStartTime && ev.timeSec < blockEndTime)
+                    {
+                        int sampleOffset = static_cast<int>((ev.timeSec - blockStartTime) * sampleRate);
+                        sampleOffset = juce::jlimit(0, samplesThisBlock - 1, sampleOffset);
+                        blockMidi.addEvent(juce::MidiMessage::noteOn(1, ev.note, (juce::uint8)(ev.velocity * 127.f)), sampleOffset);
+                    }
+                    double noteOffTime = ev.timeSec + ev.durationSec;
+                    if (noteOffTime >= blockStartTime && noteOffTime < blockEndTime)
+                    {
+                        int sampleOffset = static_cast<int>((noteOffTime - blockStartTime) * sampleRate);
+                        sampleOffset = juce::jlimit(0, samplesThisBlock - 1, sampleOffset);
+                        blockMidi.addEvent(juce::MidiMessage::noteOff(1, ev.note), sampleOffset);
+                    }
                 }
 
-                // 3. Upper Melody (Traditional Lao Molam riff from video 0:09-0:27: A4=69, C5=72, D5=74, E5=76, G5=79)
-                score.push_back({ 0.5, 69, 0.25, 0.9f });  // A4
-                score.push_back({ 0.75, 72, 0.25, 0.9f }); // C5
-                score.push_back({ 1.0, 74, 0.50, 0.95f }); // D5
-                score.push_back({ 1.5, 76, 0.50, 0.95f }); // E5
-                score.push_back({ 2.0, 79, 0.35, 1.0f });  // G5
-                score.push_back({ 2.375, 76, 0.25, 0.9f });// E5
-                score.push_back({ 2.625, 74, 0.35, 0.9f });// D5
-                score.push_back({ 3.0, 72, 0.50, 0.95f }); // C5
-                score.push_back({ 3.5, 69, 0.75, 1.0f });  // A4 (held with suction bite)
-                score.push_back({ 4.5, 74, 0.25, 0.9f });  // D5
-                score.push_back({ 4.75, 76, 0.25, 0.9f }); // E5
-                score.push_back({ 5.0, 79, 0.60, 1.0f });  // G5
-                score.push_back({ 5.75, 76, 0.40, 0.9f }); // E5
-                score.push_back({ 6.25, 72, 0.55, 0.95f });// C5
+                processor.processBlock(blockBuf, blockMidi);
 
-                const int blockSize = 512;
-                int currentSample = 0;
-
-                while (currentSample < totalSamples)
+                for (int ch = 0; ch < 2; ++ch)
                 {
-                    int samplesThisBlock = std::min(blockSize, totalSamples - currentSample);
-                    juce::AudioBuffer<float> blockBuf(2, samplesThisBlock);
-                    blockBuf.clear();
-                    juce::MidiBuffer blockMidi;
-
-                    double blockStartTime = currentSample / sampleRate;
-                    double blockEndTime = (currentSample + samplesThisBlock) / sampleRate;
-
-                    for (const auto& ev : score)
-                    {
-                        if (ev.timeSec >= blockStartTime && ev.timeSec < blockEndTime)
-                        {
-                            int sampleOffset = static_cast<int>((ev.timeSec - blockStartTime) * sampleRate);
-                            sampleOffset = juce::jlimit(0, samplesThisBlock - 1, sampleOffset);
-                            blockMidi.addEvent(juce::MidiMessage::noteOn(1, ev.note, (juce::uint8)(ev.velocity * 127.f)), sampleOffset);
-                        }
-                        double noteOffTime = ev.timeSec + ev.durationSec;
-                        if (noteOffTime >= blockStartTime && noteOffTime < blockEndTime)
-                        {
-                            int sampleOffset = static_cast<int>((noteOffTime - blockStartTime) * sampleRate);
-                            sampleOffset = juce::jlimit(0, samplesThisBlock - 1, sampleOffset);
-                            blockMidi.addEvent(juce::MidiMessage::noteOff(1, ev.note), sampleOffset);
-                        }
-                    }
-
-                    processor.processBlock(blockBuf, blockMidi);
-
-                    for (int ch = 0; ch < 2; ++ch)
-                    {
-                        renderBuffer.copyFrom(ch, currentSample, blockBuf, ch, 0, samplesThisBlock);
-                    }
-                    currentSample += samplesThisBlock;
+                    renderBuffer.copyFrom(ch, currentSample, blockBuf, ch, 0, samplesThisBlock);
                 }
+                currentSample += samplesThisBlock;
+            }
 
-                juce::File wavFile("c:/APPs/Khaen/khaen_video_09_27_imitation.wav");
-                if (wavFile.existsAsFile()) wavFile.deleteFile();
+            juce::File wavFile("c:/APPs/Khaen/khaen_video_09_27_imitation.wav");
+            if (wavFile.existsAsFile()) wavFile.deleteFile();
 
-                std::unique_ptr<juce::FileOutputStream> wavStream(wavFile.createOutputStream());
-                if (wavStream != nullptr)
+            std::unique_ptr<juce::FileOutputStream> wavStream(wavFile.createOutputStream());
+            if (wavStream != nullptr)
+            {
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatWriter> writer(
+                    wavFormat.createWriterFor(wavStream.get(), sampleRate, 2, 24, {}, 0));
+                if (writer != nullptr)
                 {
-                    juce::WavAudioFormat wavFormat;
-                    std::unique_ptr<juce::AudioFormatWriter> writer(
-                        wavFormat.createWriterFor(wavStream.get(), sampleRate, 2, 24, {}, 0));
-                    if (writer != nullptr)
-                    {
-                        wavStream.release();
-                        writer->writeFromAudioSampleBuffer(renderBuffer, 0, totalSamples);
-                        std::cout << "  Rendered video imitation audio: " << wavFile.getFullPathName() << std::endl;
-                    }
+                    wavStream.release();
+                    writer->writeFromAudioSampleBuffer(renderBuffer, 0, totalSamples);
+                    std::cout << "  Rendered video imitation audio: " << wavFile.getFullPathName() << std::endl;
                 }
             }
         }
