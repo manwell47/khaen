@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="Gemini_Generated_Image_6183g16183g16183.png" alt="Khaen VST3 Physical Model Synthesizer" width="100%" />
-</p>
-
 # 🎋 Khaen — Free-Reed Physical Modeling Synthesizer
 
 > **Next-generation digital waveguide physical modeling synthesizer inspired by the traditional Lao & Isan bamboo mouth organ (*Khaen*).**  
@@ -16,6 +12,10 @@
   <img src="https://img.shields.io/badge/MIDI-MPE%20Polyphonic-success.svg" alt="MPE" />
   <img src="https://img.shields.io/badge/Formats-VST3%20%7C%20AU%20%7C%20Standalone-informational.svg" alt="Formats" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
+</p>
+
+<p align="center">
+  <img src="Gemini_Generated_Image_6183g16183g16183.png" alt="Khaen VST3 Physical Model Synthesizer" width="30%" />
 </p>
 
 ---
