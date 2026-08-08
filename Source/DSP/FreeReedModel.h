@@ -50,6 +50,7 @@ public:
         Articulation articulation = Articulation::Legato;
         float tongueContactMs = 35.0f;   // [10.0..100.0 ms] duration of tongue damping contact
         float vocalTract      = 0.50f;   // [0..1] oral cavity impedance tuning / vowel formants [u -> o -> a -> e -> i]
+        float velocitySens    = 0.80f;   // [0..1] dynamic velocity sensitivity curve
     };
 
     //==========================================================================
@@ -79,7 +80,7 @@ public:
     bool isInhale() const noexcept { return m_inhaleBlend >= 0.5f; }
     float getInhaleBlend() const noexcept { return m_inhaleBlend; }
 
-    void noteOn (float midiNote = 60.f);
+    void noteOn (float midiNote = 60.f, float velocity = 0.8f);
     void noteOff (float releaseTime = 0.10f);
     void retriggerBreathPulse (float velocity, BreathDirection dir);
 
@@ -88,6 +89,8 @@ public:
     static bool isGlobalInhale() noexcept { return s_globalBreathPhase >= juce::MathConstants<float>::pi * 0.5f && s_globalBreathPhase <= juce::MathConstants<float>::pi * 1.5f; }
     static void setSustainedBassNote (bool hasBass) noexcept { s_hasSustainedBassNote = hasBass; }
     static bool hasSustainedBassNote() noexcept { return s_hasSustainedBassNote; }
+    static void setBaseOctaveNote (int baseOct) noexcept { s_baseOctaveNote = baseOct; }
+    static int  getBaseOctaveNote() noexcept { return s_baseOctaveNote; }
 
 private:
     //==========================================================================
@@ -189,6 +192,7 @@ private:
     static inline float s_globalBreathPhase = 0.f;
     static inline bool  s_riffAlternate = false;
     static inline bool  s_hasSustainedBassNote = false;
+    static inline int   s_baseOctaveNote = 48; // Base MIDI note of active 2-octave playing window
     static inline uint32_t s_lastTriggerTime = 0;
 
     // Continuous Respiratory Breath Engine state
@@ -251,9 +255,10 @@ private:
     int   m_formantUpdateCounter = 0;
 
     // Envelope
-    bool  m_active      = false;
-    bool  m_releasing   = false;
-    float m_amplitude   = 0.f;
-    float m_attackRate  = 0.005f;
-    float m_releaseRate = 0.001f;
+    bool  m_active       = false;
+    bool  m_releasing    = false;
+    float m_amplitude    = 0.f;
+    float m_noteVelocity = 0.8f;
+    float m_attackRate   = 0.005f;
+    float m_releaseRate  = 0.001f;
 };

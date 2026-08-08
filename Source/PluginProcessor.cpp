@@ -6,13 +6,63 @@ using APVTS = juce::AudioProcessorValueTreeState;
 using Params = APVTS::ParameterLayout;
 
 //==============================================================================
+juce::String getMusicalIntervalName (float semitones)
+{
+    int st = juce::roundToInt(semitones);
+    switch (st)
+    {
+        case -24: return "-2 Octaves (-24st)";
+        case -19: return "-Perfect 12th (-19st)";
+        case -17: return "-Perfect 11th (-17st)";
+        case -16: return "-Major 10th (-16st)";
+        case -15: return "-Minor 10th (-15st)";
+        case -14: return "-Major 9th (-14st)";
+        case -13: return "-Minor 9th (-13st)";
+        case -12: return "-1 Octave (-12st)";
+        case -11: return "-Major 7th (-11st)";
+        case -10: return "-Minor 7th (-10st)";
+        case -9:  return "-Major 6th (-9st)";
+        case -8:  return "-Minor 6th (-8st)";
+        case -7:  return "-Perfect 5th (-7st)";
+        case -6:  return "-Tritone (-6st)";
+        case -5:  return "-Perfect 4th (-5st)";
+        case -4:  return "-Major 3rd (-4st)";
+        case -3:  return "-Minor 3rd (-3st)";
+        case -2:  return "-Major 2nd (-2st)";
+        case -1:  return "-Minor 2nd (-1st)";
+        case 0:   return "Unison (0st)";
+        case 1:   return "+Minor 2nd (+1st)";
+        case 2:   return "+Major 2nd (+2st)";
+        case 3:   return "+Minor 3rd (+3st)";
+        case 4:   return "+Major 3rd (+4st)";
+        case 5:   return "+Perfect 4th (+5st)";
+        case 6:   return "+Tritone (+6st)";
+        case 7:   return "+Perfect 5th (+7st)";
+        case 8:   return "+Minor 6th (+8st)";
+        case 9:   return "+Major 6th (+9st)";
+        case 10:  return "+Minor 7th (+10st)";
+        case 11:  return "+Major 7th (+11st)";
+        case 12:  return "+1 Octave (+12st)";
+        case 13:  return "+Minor 9th (+13st)";
+        case 14:  return "+Major 9th (+14st)";
+        case 15:  return "+Minor 10th (+15st)";
+        case 16:  return "+Major 10th (+16st)";
+        case 17:  return "+Perfect 11th (+17st)";
+        case 19:  return "+Perfect 12th (+19st)";
+        case 24:  return "+2 Octaves (+24st)";
+        default:
+            return (st > 0 ? "+" : "") + juce::String(st) + " st";
+    }
+}
+
+//==============================================================================
 APVTS::ParameterLayout KhaenAudioProcessor::createParameterLayout()
 {
     Params params;
 
     auto pct  = [](float v) { return juce::NormalisableRange<float>(0.f, 1.f, 0.001f); (void)v; };
     auto ms   = [](float lo, float hi) { return juce::NormalisableRange<float>(lo, hi, 0.1f); };
-    auto semi = []() { return juce::NormalisableRange<float>(-12.f, 12.f, 0.5f); };
+    auto semi = []() { return juce::NormalisableRange<float>(-24.f, 24.f, 1.0f); };
 
     // ── Physical model ────────────────────────────────────────────────────────
     params.add(std::make_unique<juce::AudioParameterFloat>("reedStiffness",  "Reed Stiffness",
@@ -40,6 +90,10 @@ APVTS::ParameterLayout KhaenAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float>(10.0f, 100.0f, 0.5f), 35.0f));
     params.add(std::make_unique<juce::AudioParameterFloat>("vocalTract", "Vocal Tract Formant",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.50f));
+    params.add(std::make_unique<juce::AudioParameterFloat>("velocitySens", "Velocity Sensitivity",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.80f));
+    params.add(std::make_unique<juce::AudioParameterFloat>("masterVolume", "Master Volume (dB)",
+        juce::NormalisableRange<float>(-24.0f, 6.0f, 0.1f), 0.0f));
 
     // ── Macros ────────────────────────────────────────────────────────────────
     params.add(std::make_unique<juce::AudioParameterFloat>("macroAir",        "Air",
@@ -64,10 +118,18 @@ APVTS::ParameterLayout KhaenAudioProcessor::createParameterLayout()
     params.add(std::make_unique<juce::AudioParameterFloat>("delayHfDamp",   "HF Damping",
         juce::NormalisableRange<float>(0.f, 1.f, 0.01f), 0.65f));
     params.add(std::make_unique<juce::AudioParameterBool>("delayBypass",    "Delay Bypass", false));
+    params.add(std::make_unique<juce::AudioParameterBool>("delaySync",      "Delay Sync to Host", true));
+    juce::StringArray divisions { "1/1", "1/2D", "1/2", "1/2T", "1/4D", "1/4", "1/4T", "1/8D", "1/8", "1/8T", "1/16D", "1/16", "1/16T", "1/32" };
+    params.add(std::make_unique<juce::AudioParameterChoice>("delayDivision", "Delay Division", divisions, 7));
 
     // ── Harmonizer ────────────────────────────────────────────────────────────
-    params.add(std::make_unique<juce::AudioParameterFloat>("harmonShift",  "Harmonizer Shift",
-        semi(), 0.f));
+    auto semiRange = juce::NormalisableRange<float>(-24.f, 24.f, 1.0f);
+    params.add(std::make_unique<juce::AudioParameterFloat>(
+        "harmonShift", "Harmonizer Shift", semiRange, 0.f,
+        juce::String(),
+        juce::AudioProcessorParameter::genericParameter,
+        [](float val, int /*maxLen*/) { return getMusicalIntervalName(val); },
+        [](const juce::String& text) { return text.getFloatValue(); }));
     params.add(std::make_unique<juce::AudioParameterFloat>("harmonMix",    "Harmonizer Mix",
         juce::NormalisableRange<float>(0.f, 1.f, 0.01f), 0.0f));
     params.add(std::make_unique<juce::AudioParameterFloat>("harmonVoices", "Harm Spread",
@@ -90,8 +152,13 @@ APVTS::ParameterLayout KhaenAudioProcessor::createParameterLayout()
     params.add(std::make_unique<juce::AudioParameterBool>("crystalFreeze", "Freeze Gate", false));
     params.add(std::make_unique<juce::AudioParameterFloat>("crystalLoopMs",   "Loop Size (ms)",
         ms(20.f, 500.f), 80.f));
-    params.add(std::make_unique<juce::AudioParameterFloat>("crystalPitch",    "Crystal Pitch",
-        juce::NormalisableRange<float>(-24.f, 24.f, 0.5f), 12.f));
+    params.add(std::make_unique<juce::AudioParameterFloat>(
+        "crystalPitch", "Crystal Pitch",
+        juce::NormalisableRange<float>(-24.f, 24.f, 1.0f), 12.f,
+        juce::String(),
+        juce::AudioProcessorParameter::genericParameter,
+        [](float val, int /*maxLen*/) { return getMusicalIntervalName(val); },
+        [](const juce::String& text) { return text.getFloatValue(); }));
     params.add(std::make_unique<juce::AudioParameterBool>("crystalBypass",    "Crystallizer Bypass", false));
 
     // ── Reverb Engine (Laos Presets) ──────────────────────────────────────────
@@ -137,6 +204,8 @@ KhaenAudioProcessor::KhaenAudioProcessor()
     m_pArticulation    = m_apvts.getRawParameterValue("articulation");
     m_pTongueContact   = m_apvts.getRawParameterValue("tongueContact");
     m_pVocalTract      = m_apvts.getRawParameterValue("vocalTract");
+    m_pVelocitySens    = m_apvts.getRawParameterValue("velocitySens");
+    m_pMasterVolume    = m_apvts.getRawParameterValue("masterVolume");
 
     m_pMacroAir        = m_apvts.getRawParameterValue("macroAir");
     m_pMacroEmbouchure = m_apvts.getRawParameterValue("macroEmbouchure");
@@ -149,6 +218,8 @@ KhaenAudioProcessor::KhaenAudioProcessor()
     m_pDelayWow        = m_apvts.getRawParameterValue("delayWow");
     m_pDelayFlutter    = m_apvts.getRawParameterValue("delayFlutter");
     m_pDelayBypass     = m_apvts.getRawParameterValue("delayBypass");
+    m_pDelaySync       = m_apvts.getRawParameterValue("delaySync");
+    m_pDelayDivision   = m_apvts.getRawParameterValue("delayDivision");
 
     m_pHarmonShift     = m_apvts.getRawParameterValue("harmonShift");
     m_pHarmonMix       = m_apvts.getRawParameterValue("harmonMix");
@@ -178,6 +249,9 @@ KhaenAudioProcessor::KhaenAudioProcessor()
     m_midiCCManager.setAPVTS(&m_apvts);
     if (!m_midiCCManager.loadGlobalDefault())
         m_midiCCManager.applyStandardMidiCC();
+
+    // Load Factory Preset 0 (Classic Khaen)
+    m_presetManager.loadPreset(0, m_apvts);
 }
 
 KhaenAudioProcessor::~KhaenAudioProcessor() {}
@@ -251,6 +325,7 @@ FreeReedModel::Parameters KhaenAudioProcessor::buildPhysicsParams() const
     p.articulation   = static_cast<FreeReedModel::Articulation>(juce::jlimit(0, 3, artIdx));
     p.tongueContactMs= m_pTongueContact ? m_pTongueContact->load() : 35.0f;
     p.vocalTract     = m_pVocalTract ? m_pVocalTract->load() : 0.50f;
+    p.velocitySens   = m_pVelocitySens ? m_pVelocitySens->load() : 0.80f;
 
     return p;
 }
@@ -263,7 +338,24 @@ void KhaenAudioProcessor::syncParameters()
 
     // ── Tape Delay ────────────────────────────────────────────────────────────
     TapeDelay::Parameters dp;
-    dp.delayTimeMs = m_pDelayTime->load();
+    bool syncToDaw = (m_pDelaySync && m_pDelaySync->load() > 0.5f);
+    if (syncToDaw)
+    {
+        int divIdx = m_pDelayDivision ? static_cast<int>(m_pDelayDivision->load()) : 7;
+        divIdx = juce::jlimit(0, 13, divIdx);
+        static constexpr float beatMultipliers[] = {
+            4.0f, 3.0f, 2.0f, 1.333333f, 1.5f, 1.0f, 0.666667f,
+            0.75f, 0.5f, 0.333333f, 0.375f, 0.25f, 0.166667f, 0.125f
+        };
+        float beats = beatMultipliers[divIdx];
+        float bpm = std::max(20.0f, m_currentBpm.load(std::memory_order_relaxed));
+        float msPerBeat = (60.0f / bpm) * 1000.0f;
+        dp.delayTimeMs = juce::jlimit(10.0f, 2000.0f, msPerBeat * beats);
+    }
+    else
+    {
+        dp.delayTimeMs = m_pDelayTime->load();
+    }
     dp.feedback    = m_pDelayFeedback->load();
     dp.mix         = m_pDelayMix->load();
     dp.pingPong    = m_pDelayPingPong->load() > 0.5f;
@@ -281,7 +373,7 @@ void KhaenAudioProcessor::syncParameters()
     hp.bypass         = (m_pHarmonBypass && m_pHarmonBypass->load() > 0.5f);
     m_harmonizer.setParameters(hp);
 
-    // ── Crystallizer ──────────────────────────────────────────────────────────
+    // ── Granular Crystallizer ──────────────────────────────────────────────────
     GranularCrystallizer::Parameters cp;
     cp.grainSizeMs   = m_pCrystalGrain->load();
     cp.delayMs       = m_pCrystalDelay->load();
@@ -308,9 +400,55 @@ void KhaenAudioProcessor::syncParameters()
 }
 
 //==============================================================================
+void KhaenAudioProcessor::tapTempo()
+{
+    double now = juce::Time::getMillisecondCounterHiRes();
+    m_tapFlash.store(1.0f, std::memory_order_relaxed);
+
+    const juce::ScopedLock sl(m_tapLock);
+    if (!m_tapTimes.empty() && (now - m_tapTimes.back()) > 2000.0)
+    {
+        m_tapTimes.clear();
+    }
+
+    m_tapTimes.push_back(now);
+    if (m_tapTimes.size() > 5)
+        m_tapTimes.erase(m_tapTimes.begin());
+
+    if (m_tapTimes.size() >= 2)
+    {
+        double totalDelta = 0.0;
+        for (size_t i = 1; i < m_tapTimes.size(); ++i)
+            totalDelta += (m_tapTimes[i] - m_tapTimes[i - 1]);
+
+        double avgIntervalMs = totalDelta / static_cast<double>(m_tapTimes.size() - 1);
+        avgIntervalMs = juce::jlimit(20.0, 2000.0, avgIntervalMs);
+
+        // Update delay time parameter
+        if (auto* param = m_apvts.getParameter("delayTime"))
+            param->setValueNotifyingHost(param->convertTo0to1(static_cast<float>(avgIntervalMs)));
+
+        float calculatedBpm = static_cast<float>(60000.0 / avgIntervalMs);
+        m_currentBpm.store(calculatedBpm, std::memory_order_relaxed);
+    }
+}
+
+//==============================================================================
 void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    // ── Track Host DAW BPM ────────────────────────────────────────────────────
+    double hostBpm = 120.0;
+    if (auto* playHead = getPlayHead())
+    {
+        if (auto pos = playHead->getPosition())
+        {
+            if (pos->getBpm().hasValue())
+                hostBpm = *pos->getBpm();
+        }
+    }
+    m_currentBpm.store(static_cast<float>(hostBpm), std::memory_order_relaxed);
 
     // ── MIDI Activity Flag & Filtered Buffer ──────────────────────────────────
     if (!midiMessages.isEmpty())
@@ -349,14 +487,8 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             }
 
             if (note >= 0 && note < 128)
-            {
-                if (!m_heldNotes[note])
-                {
-                    m_heldNotes[note] = true;
-                    if (note <= 60) // C4 or lower
-                        m_heldBassNoteCount++;
-                }
-            }
+                m_heldNotes[note] = true;
+
             m_activeNoteNumber.store(static_cast<float>(note), std::memory_order_relaxed);
             m_midiActivity.store(1, std::memory_order_relaxed);
             synthMidi.addEvent(msg, sampleOffset);
@@ -371,14 +503,8 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             }
 
             if (note >= 0 && note < 128)
-            {
-                if (m_heldNotes[note])
-                {
-                    m_heldNotes[note] = false;
-                    if (note <= 60)
-                        m_heldBassNoteCount = std::max(0, m_heldBassNoteCount - 1);
-                }
-            }
+                m_heldNotes[note] = false;
+
             m_midiActivity.store(1, std::memory_order_relaxed);
             synthMidi.addEvent(msg, sampleOffset);
         }
@@ -402,7 +528,52 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         }
     }
 
-    // Decay visualizer keyswitch pulse flash
+    // Dynamic 2-Octave Keyboard Window & Bass Drone Evaluation:
+    int lowestHeldNote = -1;
+    int highestHeldNote = -1;
+    int totalHeldNotes = 0;
+
+    for (int n = 0; n < 128; ++n)
+    {
+        if (m_heldNotes[n])
+        {
+            if (lowestHeldNote < 0) lowestHeldNote = n;
+            highestHeldNote = n;
+            totalHeldNotes++;
+        }
+    }
+
+    if (totalHeldNotes > 0)
+    {
+        // Dynamically align 2-octave keyboard frame [baseOct .. baseOct + 23] to lowest held note
+        int baseOct = (lowestHeldNote / 12) * 12;
+        FreeReedModel::setBaseOctaveNote(baseOct);
+
+        // In the 2-octave keyboard frame [baseOct .. baseOct + 23]:
+        // Lower 12 semitones [baseOct .. baseOct + 11] = Bass Drone range
+        // Upper 12 semitones [baseOct + 12 .. baseOct + 23] = Melody range
+        // A continuous suction drone occurs when holding a bass key WHILE playing melody keys (totalHeldNotes >= 2)
+        bool hasBassKey   = (lowestHeldNote < baseOct + 12);
+        bool hasMelodyKey = (highestHeldNote >= baseOct + 12);
+
+        if (totalHeldNotes >= 2 && hasBassKey && hasMelodyKey)
+        {
+            m_heldBassNoteCount = 1;
+            FreeReedModel::setSustainedBassNote(true);
+        }
+        else
+        {
+            m_heldBassNoteCount = 0;
+            FreeReedModel::setSustainedBassNote(false);
+        }
+    }
+    else
+    {
+        m_heldBassNoteCount = 0;
+        FreeReedModel::setSustainedBassNote(false);
+    }
+
+    // Decay visualizer keyswitch pulse flash & tap flash
     float currentFlash = m_keyswitchPulseFlash.load(std::memory_order_relaxed);
     if (currentFlash > 0.001f)
     {
@@ -411,8 +582,13 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         m_keyswitchPulseFlash.store(std::max(0.0f, currentFlash - decay), std::memory_order_relaxed);
     }
 
-    // Lock continuous respiratory engine into suction when a bass note is sustained
-    FreeReedModel::setSustainedBassNote(m_heldBassNoteCount > 0);
+    float tapFlash = m_tapFlash.load(std::memory_order_relaxed);
+    if (tapFlash > 0.001f)
+    {
+        double sr = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
+        float decay = static_cast<float>(buffer.getNumSamples()) / static_cast<float>(sr * 0.25); // 250ms decay
+        m_tapFlash.store(std::max(0.0f, tapFlash - decay), std::memory_order_relaxed);
+    }
 
     if (!midiMessages.isEmpty())
         m_midiActivity.store(1, std::memory_order_relaxed);
@@ -434,7 +610,12 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     m_crystallizer.process(buffer);
     m_reverb.process(buffer);
 
-    // 3. Update visualizer ring buffer & RMS
+    // 3. Master Volume Gain
+    float masterDb = m_pMasterVolume ? m_pMasterVolume->load() : 0.0f;
+    float masterGain = juce::Decibels::decibelsToGain(masterDb);
+    buffer.applyGain(masterGain);
+
+    // 4. Update visualizer ring buffer & RMS
     const float* chanL = buffer.getReadPointer(0);
     float rmsAccum = 0.f;
 
@@ -447,6 +628,9 @@ void KhaenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         m_visBuf[wp] = s;
         m_visWritePos.store(wp);
     }
+
+    // Push stereo buffer into high-resolution spectral analyzer
+    m_spectralAnalyzer.pushAudioBlock(buffer.getArrayOfReadPointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
     rmsAccum = std::sqrt(rmsAccum / buffer.getNumSamples());
     m_outputRms.store(rmsAccum);

@@ -399,7 +399,8 @@ LabelledKnob::LabelledKnob (const juce::String& labelText, KhaenKnob::Style styl
     addAndMakeVisible(label);
 
     label.setText(labelText.toUpperCase(), juce::dontSendNotification);
-    label.setFont(juce::Font(10.0f));
+    label.setFont(juce::Font(9.5f));
+    label.setMinimumHorizontalScale(0.65f);
     label.setColour(juce::Label::textColourId, KhaenColors::textDim);
     label.setJustificationType(juce::Justification::centred);
 }

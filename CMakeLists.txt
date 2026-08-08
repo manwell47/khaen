@@ -59,6 +59,8 @@ target_sources(Khaen PRIVATE
     Source/UI/MidiLed.h
     Source/UI/MidiMappingDialog.cpp
     Source/UI/MidiMappingDialog.h
+    Source/UI/HelpDialog.cpp
+    Source/UI/HelpDialog.h
 
     # MIDI & Hardware Mapping
     Source/MIDI/MidiCCManager.cpp
@@ -115,9 +117,16 @@ target_include_directories(Khaen PRIVATE
     Source/UI
 )
 
+# ─── Binary Assets ─────────────────────────────────────────────────────────────
+juce_add_binary_data(KhaenBinaryData
+    SOURCES
+        "Breath of Laos.png"
+)
+
 # ─── Link JUCE Modules ─────────────────────────────────────────────────────────
 target_link_libraries(Khaen
     PRIVATE
+        KhaenBinaryData
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -166,6 +175,7 @@ target_include_directories(KhaenDspTest PRIVATE
 )
 target_link_libraries(KhaenDspTest PRIVATE
     Khaen
+    KhaenBinaryData
     juce::juce_audio_basics
     juce::juce_audio_devices
     juce::juce_audio_formats

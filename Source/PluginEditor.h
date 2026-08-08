@@ -5,6 +5,7 @@
 #include "UI/WaveVisualizer.h"
 #include "UI/MidiLed.h"
 #include "UI/MidiMappingDialog.h"
+#include "UI/HelpDialog.h"
 
 //==============================================================================
 /**
@@ -13,7 +14,7 @@
  * Layout (1280×800, aspect-locked 16:10):
  *
  *  ┌─────────────────────────────────────────────────────────────┐
- *  │  HEADER: Preset Selector | Logo | MIDI MAP | MIDI Led       │  60px
+ *  │  HEADER: Preset Selector | Logo | HELP | MIDI MAP | MIDI Led│  60px
  *  ├──────────┬──────────────────────────────────────────────────┤
  *  │  MACROS  │  VISUALIZER  |  PHYSICS PARAMS                  │  500px
  *  │  Air     │  WaveVis     |  Reed Stiff / Bore / Material    │
@@ -26,7 +27,8 @@
  */
 class KhaenEditor : public juce::AudioProcessorEditor,
                     private juce::ComboBox::Listener,
-                    private juce::Button::Listener
+                    private juce::Button::Listener,
+                    private juce::Timer
 {
 public:
     explicit KhaenEditor (KhaenAudioProcessor&);
@@ -36,6 +38,7 @@ public:
     void resized () override;
     void switchTab (int tabIndex);
     void toggleMidiMappingDialog();
+    void toggleHelpDialog();
 
     WaveVisualizer& getWaveVisualizer() { return m_waveVis; }
     MidiLed&        getMidiLed()        { return m_midiLed; }
@@ -63,6 +66,7 @@ private:
 
     void comboBoxChanged (juce::ComboBox*) override;
     void buttonClicked   (juce::Button*)   override;
+    void timerCallback   ()                override;
 
     //==========================================================================
     KhaenAudioProcessor& m_proc;
@@ -71,9 +75,13 @@ private:
     juce::ComboBox    m_presetBox;
     juce::TextButton  m_prevPreset  { "<" };
     juce::TextButton  m_nextPreset  { ">" };
+    LabelledKnob      m_knobMasterVol { "MASTER", KhaenKnob::Style::Gold };
+    juce::TextButton  m_helpBtn     { "HELP" };
     juce::TextButton  m_midiMapBtn  { "MIDI MAP" };
     MidiLed           m_midiLed;
     juce::Label       m_midiLabel;
+
+    std::unique_ptr<SliderAtt> m_attMasterVol;
 
     // ── Macro knobs ───────────────────────────────────────────────────────────
     LabelledKnob m_knobAir        { "AIR",        KhaenKnob::Style::Copper };
@@ -86,19 +94,20 @@ private:
     WaveVisualizer m_waveVis;
 
     // ── Physics panel ─────────────────────────────────────────────────────────
-    LabelledKnob m_knobStiffness   { "STIFFNESS",    KhaenKnob::Style::Copper };
-    LabelledKnob m_knobBore        { "BORE DIA",     KhaenKnob::Style::Gold   };
-    LabelledKnob m_knobBreathSpeed { "BREATH SPD",   KhaenKnob::Style::Copper };
-    LabelledKnob m_knobSuctionBite { "SUCTION BITE", KhaenKnob::Style::Gold   };
-    LabelledKnob m_knobVocalTract  { "VOCAL TRACT",  KhaenKnob::Style::Gold   };
-    LabelledKnob m_knobTongue      { "TONGUE (MS)",  KhaenKnob::Style::Ghost  };
+    LabelledKnob m_knobStiffness   { "STIFFNESS",      KhaenKnob::Style::Copper };
+    LabelledKnob m_knobBore        { "BORE DIAMETER",  KhaenKnob::Style::Gold   };
+    LabelledKnob m_knobBreathSpeed { "BREATH SPEED",   KhaenKnob::Style::Copper };
+    LabelledKnob m_knobSuctionBite { "SUCTION BITE",   KhaenKnob::Style::Gold   };
+    LabelledKnob m_knobVocalTract  { "VOCAL TRACT",    KhaenKnob::Style::Gold   };
+    LabelledKnob m_knobTongue      { "TONGUE TIME",    KhaenKnob::Style::Ghost  };
+    LabelledKnob m_knobVelSens     { "VELOCITY SENS",  KhaenKnob::Style::Copper };
     juce::ComboBox     m_matCombo;
     juce::Label        m_matLabel;
     juce::ComboBox     m_artCombo;
     juce::Label        m_artLabel;
     juce::ToggleButton m_autoRiffBtn { "AUTO-RIFF" };
 
-    std::unique_ptr<SliderAtt> m_attStiffness, m_attBore, m_attBreathSpeed, m_attSuctionBite, m_attVocalTract, m_attTongue;
+    std::unique_ptr<SliderAtt> m_attStiffness, m_attBore, m_attBreathSpeed, m_attSuctionBite, m_attVocalTract, m_attTongue, m_attVelSens;
     std::unique_ptr<ComboAtt>  m_attMaterial, m_attArticulation;
     std::unique_ptr<ButtonAtt> m_attAutoRiff;
 
@@ -110,26 +119,33 @@ private:
     int              m_activeTab      = 0;
 
     // ── Delay panel ───────────────────────────────────────────────────────────
-    juce::Component m_delayPanel;
-    LabelledKnob    m_knobDelTime  { "TIME",     KhaenKnob::Style::Copper };
-    LabelledKnob    m_knobDelFb    { "FEEDBACK", KhaenKnob::Style::Copper };
-    LabelledKnob    m_knobDelMix   { "MIX",      KhaenKnob::Style::Gold   };
-    LabelledKnob    m_knobDelWow   { "WOW",      KhaenKnob::Style::Ghost  };
-    LabelledKnob    m_knobDelFlut  { "FLUTTER",  KhaenKnob::Style::Ghost  };
-    juce::ToggleButton m_pingPong       { "PING-PONG" };
-    juce::ToggleButton m_delayBypassBtn { "BYPASS" };
+    juce::Component    m_delayPanel;
+    LabelledKnob       m_knobDelTime      { "TIME",     KhaenKnob::Style::Copper };
+    LabelledKnob       m_knobDelFb        { "FEEDBACK", KhaenKnob::Style::Copper };
+    LabelledKnob       m_knobDelMix       { "MIX",      KhaenKnob::Style::Gold   };
+    LabelledKnob       m_knobDelWow       { "WOW",      KhaenKnob::Style::Ghost  };
+    LabelledKnob       m_knobDelFlut      { "FLUTTER",  KhaenKnob::Style::Ghost  };
+    juce::ToggleButton m_delaySyncBtn     { "SYNC" };
+    juce::ComboBox     m_delayDivCombo;
+    juce::Label        m_delayDivLabel;
+    juce::TextButton   m_tapTempoBtn      { "TAP" };
+    juce::ToggleButton m_pingPong         { "PING-PONG" };
+    juce::ToggleButton m_delayBypassBtn   { "BYPASS" };
 
     std::unique_ptr<SliderAtt> m_attDelTime, m_attDelFb, m_attDelMix,
                                m_attDelWow,  m_attDelFlut;
-    std::unique_ptr<ButtonAtt> m_attPingPong, m_attDelayBypass;
+    std::unique_ptr<ComboAtt>  m_attDelayDiv;
+    std::unique_ptr<ButtonAtt> m_attDelaySync, m_attPingPong, m_attDelayBypass;
 
     // ── Harmonizer panel ──────────────────────────────────────────────────────
-    juce::Component m_harmPanel;
-    LabelledKnob    m_knobHarmShift  { "SHIFT",     KhaenKnob::Style::Copper };
-    LabelledKnob    m_knobHarmDet    { "FINE (CT)", KhaenKnob::Style::Ghost  };
-    LabelledKnob    m_knobHarmSpread { "SPREAD",    KhaenKnob::Style::Ghost  };
-    LabelledKnob    m_knobHarmMix    { "MIX",       KhaenKnob::Style::Gold   };
-    juce::ToggleButton m_harmBypassBtn { "BYPASS" };
+    juce::Component    m_harmPanel;
+    LabelledKnob       m_knobHarmShift    { "SHIFT",     KhaenKnob::Style::Copper };
+    juce::ComboBox     m_harmIntervalCombo;
+    juce::Label        m_harmIntervalLabel;
+    LabelledKnob       m_knobHarmDet      { "FINE (CT)", KhaenKnob::Style::Ghost  };
+    LabelledKnob       m_knobHarmSpread   { "SPREAD",    KhaenKnob::Style::Ghost  };
+    LabelledKnob       m_knobHarmMix      { "MIX",       KhaenKnob::Style::Gold   };
+    juce::ToggleButton m_harmBypassBtn    { "BYPASS" };
 
     std::unique_ptr<SliderAtt> m_attHarmShift, m_attHarmMix,
                                m_attHarmSpread, m_attHarmDet;
@@ -142,6 +158,8 @@ private:
     LabelledKnob    m_knobCrysFb    { "FEEDBACK", KhaenKnob::Style::Gold   };
     LabelledKnob    m_knobCrysMix   { "MIX",      KhaenKnob::Style::Gold   };
     LabelledKnob    m_knobCrysPitch { "PITCH",    KhaenKnob::Style::Ghost  };
+    juce::ComboBox  m_crysIntervalCombo;
+    juce::Label     m_crysIntervalLabel;
     juce::ComboBox  m_crystalMode;
     juce::Label     m_crystalModeLabel;
     juce::TextButton   m_freezeBtn     { "FREEZE" };
@@ -168,8 +186,9 @@ private:
     std::unique_ptr<ComboAtt>  m_attRevPreset;
     std::unique_ptr<ButtonAtt> m_attRevBypass;
 
-    // ── MIDI Mapping Overlay Dialog ───────────────────────────────────────────
+    // ── MIDI Mapping & Help Overlay Dialogs ───────────────────────────────────
     std::unique_ptr<MidiMappingDialog> m_midiMappingDialog;
+    std::unique_ptr<HelpDialog>        m_helpDialog;
 
     // Bounds constrainer for resizable window
     juce::ComponentBoundsConstrainer m_constrainer;

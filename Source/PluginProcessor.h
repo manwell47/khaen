@@ -7,6 +7,11 @@
 #include "FX/ReverbEngine.h"
 #include "Presets/PresetManager.h"
 #include "MIDI/MidiCCManager.h"
+#include "DSP/SpectralAnalyzer.h"
+
+//==============================================================================
+/** Returns the musical interval description for a given semitone shift */
+juce::String getMusicalIntervalName (float semitones);
 
 //==============================================================================
 /**
@@ -93,12 +98,29 @@ public:
     float getKeyswitchPulseFlash() const noexcept { return m_keyswitchPulseFlash.load(); }
     int   getLastKeyswitchNote() const noexcept { return m_lastKeyswitchNote.load(); }
 
+    /** Tap Tempo trigger from UI / controller */
+    void tapTempo();
+    float getCurrentBpm() const noexcept { return m_currentBpm.load(std::memory_order_relaxed); }
+    float getTapFlash() const noexcept { return m_tapFlash.load(std::memory_order_relaxed); }
+
     /** Returns true if the instrument is actively being played or producing sound */
     bool isInstrumentActive() const noexcept
     {
         return m_activeNoteNumber.load(std::memory_order_relaxed) >= 0.f
             || m_outputRms.load(std::memory_order_relaxed) > 0.001f
             || m_keyswitchPulseFlash.load(std::memory_order_relaxed) > 0.02f;
+    }
+
+    /** Access real-time spectral analyzer engine */
+    SpectralAnalyzer& getSpectralAnalyzer() noexcept { return m_spectralAnalyzer; }
+    const SpectralAnalyzer& getSpectralAnalyzer() const noexcept { return m_spectralAnalyzer; }
+
+    /** Check if a specific MIDI note is currently held down */
+    bool isMidiNoteHeld (int note) const noexcept
+    {
+        if (note >= 0 && note < 128)
+            return m_heldNotes[static_cast<size_t>(note)];
+        return false;
     }
 
     /** Consume MIDI activity flag for LED indicator (lock-free) */
@@ -125,6 +147,7 @@ private:
     ReverbEngine         m_reverb;
     PresetManager        m_presetManager;
     MidiCCManager        m_midiCCManager;
+    SpectralAnalyzer     m_spectralAnalyzer;
 
     // Visualizer ring buffer (lock-free)
     static constexpr int kVisBufSize = 4096;
@@ -136,6 +159,12 @@ private:
     std::atomic<float> m_keyswitchPulseFlash { 0.f };
     std::atomic<int>   m_lastKeyswitchNote   { -1 };
     std::atomic<float> m_lastKeyswitchVel    { 0.f };
+
+    // Tap tempo & BPM tracking
+    std::atomic<float> m_currentBpm { 120.0f };
+    std::atomic<float> m_tapFlash { 0.f };
+    std::vector<double> m_tapTimes;
+    juce::CriticalSection m_tapLock;
 
     // Active held notes tracking for bass suction lock
     std::array<bool, 128> m_heldNotes {};
@@ -159,6 +188,8 @@ private:
     std::atomic<float>* m_pArticulation   = nullptr;
     std::atomic<float>* m_pTongueContact  = nullptr;
     std::atomic<float>* m_pVocalTract     = nullptr;
+    std::atomic<float>* m_pVelocitySens   = nullptr;
+    std::atomic<float>* m_pMasterVolume   = nullptr;
 
     std::atomic<float>* m_pDelayTime        = nullptr;
     std::atomic<float>* m_pDelayFeedback    = nullptr;
@@ -167,6 +198,8 @@ private:
     std::atomic<float>* m_pDelayWow         = nullptr;
     std::atomic<float>* m_pDelayFlutter     = nullptr;
     std::atomic<float>* m_pDelayBypass      = nullptr;
+    std::atomic<float>* m_pDelaySync        = nullptr;
+    std::atomic<float>* m_pDelayDivision    = nullptr;
 
     std::atomic<float>* m_pHarmonShift      = nullptr;
     std::atomic<float>* m_pHarmonMix        = nullptr;

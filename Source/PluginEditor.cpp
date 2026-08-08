@@ -45,14 +45,21 @@ KhaenEditor::KhaenEditor (KhaenAudioProcessor& p)
 
     // Initialise tab selection
     switchTab(0);
+
+    // Start 30Hz GUI timer for LED/Tap tempo flashing & dynamic host BPM update
+    startTimerHz(30);
 }
 
 KhaenEditor::~KhaenEditor()
 {
+    stopTimer();
     m_presetBox.removeListener(this);
     m_prevPreset.removeListener(this);
     m_nextPreset.removeListener(this);
+    m_helpBtn.removeListener(this);
     m_midiMapBtn.removeListener(this);
+    m_tapTempoBtn.removeListener(this);
+    m_delaySyncBtn.removeListener(this);
     m_tabDelay.removeListener(this);
     m_tabHarmonizer.removeListener(this);
     m_tabCrystal.removeListener(this);
@@ -88,6 +95,11 @@ void KhaenEditor::buildHeader()
     m_nextPreset.setColour(juce::TextButton::buttonColourId,   kPanel);
     m_nextPreset.setColour(juce::TextButton::textColourOffId,  kCopper);
 
+    // Master Volume knob
+    addAndMakeVisible(m_knobMasterVol);
+    m_knobMasterVol.knob.setRange(-24.0, 6.0, 0.1);
+    m_attMasterVol = std::make_unique<SliderAtt>(m_proc.getAPVTS(), "masterVolume", m_knobMasterVol.knob);
+
     // MIDI activity LED and label
     addAndMakeVisible(m_midiLed);
     addAndMakeVisible(m_midiLabel);
@@ -100,6 +112,12 @@ void KhaenEditor::buildHeader()
     m_midiLabel.setFont(juce::Font(10.0f, juce::Font::bold));
     m_midiLabel.setColour(juce::Label::textColourId, kTextDim);
     m_midiLabel.setJustificationType(juce::Justification::centredRight);
+
+    // HELP button
+    addAndMakeVisible(m_helpBtn);
+    m_helpBtn.addListener(this);
+    m_helpBtn.setColour(juce::TextButton::buttonColourId,   kPanel.brighter(0.08f));
+    m_helpBtn.setColour(juce::TextButton::textColourOffId,  kCopper);
 
     // MIDI Mapping button
     addAndMakeVisible(m_midiMapBtn);
@@ -137,6 +155,7 @@ void KhaenEditor::buildPhysicsPanel()
     addAndMakeVisible(m_knobSuctionBite);
     addAndMakeVisible(m_knobVocalTract);
     addAndMakeVisible(m_knobTongue);
+    addAndMakeVisible(m_knobVelSens);
     addAndMakeVisible(m_matLabel);
     addAndMakeVisible(m_matCombo);
     addAndMakeVisible(m_artLabel);
@@ -149,6 +168,7 @@ void KhaenEditor::buildPhysicsPanel()
     m_knobSuctionBite.knob.setRange(0.0, 1.0, 0.01);
     m_knobVocalTract.knob.setRange(0.0, 1.0, 0.01);
     m_knobTongue.knob.setRange(10.0, 100.0, 0.5);
+    m_knobVelSens.knob.setRange(0.0, 1.0, 0.01);
 
     // Material selector
     m_matLabel.setText("MATERIAL", juce::dontSendNotification);
@@ -189,6 +209,7 @@ void KhaenEditor::buildPhysicsPanel()
     m_attSuctionBite  = std::make_unique<SliderAtt>(apvts, "suctionBite",    m_knobSuctionBite.knob);
     m_attVocalTract   = std::make_unique<SliderAtt>(apvts, "vocalTract",     m_knobVocalTract.knob);
     m_attTongue       = std::make_unique<SliderAtt>(apvts, "tongueContact",  m_knobTongue.knob);
+    m_attVelSens      = std::make_unique<SliderAtt>(apvts, "velocitySens",   m_knobVelSens.knob);
     m_attMaterial     = std::make_unique<ComboAtt> (apvts, "material",       m_matCombo);
     m_attArticulation = std::make_unique<ComboAtt> (apvts, "articulation",   m_artCombo);
     m_attAutoRiff     = std::make_unique<ButtonAtt>(apvts, "autoInhaleRiff", m_autoRiffBtn);
@@ -245,6 +266,10 @@ void KhaenEditor::buildDelayPanel()
     m_delayPanel.addAndMakeVisible(m_knobDelMix);
     m_delayPanel.addAndMakeVisible(m_knobDelWow);
     m_delayPanel.addAndMakeVisible(m_knobDelFlut);
+    m_delayPanel.addAndMakeVisible(m_delaySyncBtn);
+    m_delayPanel.addAndMakeVisible(m_delayDivLabel);
+    m_delayPanel.addAndMakeVisible(m_delayDivCombo);
+    m_delayPanel.addAndMakeVisible(m_tapTempoBtn);
     m_delayPanel.addAndMakeVisible(m_pingPong);
     m_delayPanel.addAndMakeVisible(m_delayBypassBtn);
 
@@ -253,6 +278,28 @@ void KhaenEditor::buildDelayPanel()
     m_knobDelMix.knob.setRange(0.0, 1.0, 0.01);
     m_knobDelWow.knob.setRange(0.0, 1.0, 0.01);
     m_knobDelFlut.knob.setRange(0.0, 1.0, 0.01);
+
+    m_delaySyncBtn.setColour(juce::ToggleButton::textColourId, kTextDim);
+    m_delaySyncBtn.setColour(juce::ToggleButton::tickColourId,   kCopper);
+    m_delaySyncBtn.addListener(this);
+
+    m_delayDivLabel.setText("DIVISION", juce::dontSendNotification);
+    m_delayDivLabel.setFont(juce::Font(10.0f, juce::Font::bold));
+    m_delayDivLabel.setColour(juce::Label::textColourId, kTextDim);
+    m_delayDivLabel.setJustificationType(juce::Justification::centred);
+
+    juce::StringArray divisions { "1/1", "1/2D", "1/2", "1/2T", "1/4D", "1/4", "1/4T", "1/8D", "1/8", "1/8T", "1/16D", "1/16", "1/16T", "1/32" };
+    for (int i = 0; i < divisions.size(); ++i)
+        m_delayDivCombo.addItem(divisions[i], i + 1);
+
+    m_delayDivCombo.setColour(juce::ComboBox::backgroundColourId,  kPanel);
+    m_delayDivCombo.setColour(juce::ComboBox::textColourId,        kTextPrim);
+    m_delayDivCombo.setColour(juce::ComboBox::arrowColourId,       kCopper);
+    m_delayDivCombo.setColour(juce::ComboBox::outlineColourId,     kCopperDim.withAlpha(0.5f));
+
+    m_tapTempoBtn.setColour(juce::TextButton::buttonColourId,      kPanel.brighter(0.06f));
+    m_tapTempoBtn.setColour(juce::TextButton::textColourOffId,     kGold);
+    m_tapTempoBtn.addListener(this);
 
     m_pingPong.setColour(juce::ToggleButton::textColourId, kTextDim);
     m_pingPong.setColour(juce::ToggleButton::tickColourId,   kCopper);
@@ -265,6 +312,8 @@ void KhaenEditor::buildDelayPanel()
     m_attDelMix      = std::make_unique<SliderAtt>(apvts, "delayMix",      m_knobDelMix.knob);
     m_attDelWow      = std::make_unique<SliderAtt>(apvts, "delayWow",      m_knobDelWow.knob);
     m_attDelFlut     = std::make_unique<SliderAtt>(apvts, "delayFlutter",  m_knobDelFlut.knob);
+    m_attDelaySync   = std::make_unique<ButtonAtt>(apvts, "delaySync",     m_delaySyncBtn);
+    m_attDelayDiv    = std::make_unique<ComboAtt> (apvts, "delayDivision", m_delayDivCombo);
     m_attPingPong    = std::make_unique<ButtonAtt>(apvts, "delayPingPong", m_pingPong);
     m_attDelayBypass = std::make_unique<ButtonAtt>(apvts, "delayBypass",   m_delayBypassBtn);
 }
@@ -275,12 +324,87 @@ void KhaenEditor::buildHarmonizerPanel()
     auto& apvts = m_proc.getAPVTS();
 
     m_harmPanel.addAndMakeVisible(m_knobHarmShift);
+    m_harmPanel.addAndMakeVisible(m_harmIntervalLabel);
+    m_harmPanel.addAndMakeVisible(m_harmIntervalCombo);
     m_harmPanel.addAndMakeVisible(m_knobHarmDet);
     m_harmPanel.addAndMakeVisible(m_knobHarmSpread);
     m_harmPanel.addAndMakeVisible(m_knobHarmMix);
     m_harmPanel.addAndMakeVisible(m_harmBypassBtn);
 
     m_knobHarmShift.knob.setRange(-24.0, 24.0, 1.0);
+    m_knobHarmShift.knob.textFromValueFunction = [](double v) {
+        return getMusicalIntervalName(static_cast<float>(v));
+    };
+
+    m_harmIntervalLabel.setText("INTERVAL", juce::dontSendNotification);
+    m_harmIntervalLabel.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+    m_harmIntervalLabel.setColour(juce::Label::textColourId, kTextDim);
+    m_harmIntervalLabel.setJustificationType(juce::Justification::centred);
+
+    struct IntervalChoice { int semitones; const char* name; };
+    static const IntervalChoice choices[] = {
+        { -24, "-2 Octaves (-24st)" },
+        { -19, "-Perfect 12th (-19st)" },
+        { -17, "-Perfect 11th (-17st)" },
+        { -16, "-Major 10th (-16st)" },
+        { -15, "-Minor 10th (-15st)" },
+        { -14, "-Major 9th (-14st)" },
+        { -12, "-1 Octave (-12st)" },
+        {  -7, "-Perfect 5th (-7st)" },
+        {  -5, "-Perfect 4th (-5st)" },
+        {  -4, "-Major 3rd (-4st)" },
+        {  -3, "-Minor 3rd (-3st)" },
+        {   0, "Unison (0st)" },
+        {   3, "+Minor 3rd (+3st)" },
+        {   4, "+Major 3rd (+4st)" },
+        {   5, "+Perfect 4th (+5st)" },
+        {   6, "+Tritone (+6st)" },
+        {   7, "+Perfect 5th (+7st)" },
+        {   8, "+Minor 6th (+8st)" },
+        {   9, "+Major 6th (+9st)" },
+        {  10, "+Minor 7th (+10st)" },
+        {  11, "+Major 7th (+11st)" },
+        {  12, "+1 Octave (+12st)" },
+        {  14, "+Major 9th (+14st)" },
+        {  15, "+Minor 10th (+15st)" },
+        {  16, "+Major 10th (+16st)" },
+        {  17, "+Perfect 11th (+17st)" },
+        {  19, "+Perfect 12th (+19st)" },
+        {  24, "+2 Octaves (+24st)" }
+    };
+    static constexpr int numChoices = static_cast<int>(sizeof(choices) / sizeof(choices[0]));
+
+    for (int i = 0; i < numChoices; ++i)
+        m_harmIntervalCombo.addItem(choices[i].name, i + 1);
+
+    m_harmIntervalCombo.setColour(juce::ComboBox::backgroundColourId,  kPanel);
+    m_harmIntervalCombo.setColour(juce::ComboBox::textColourId,        kTextPrim);
+    m_harmIntervalCombo.setColour(juce::ComboBox::arrowColourId,       kCopper);
+    m_harmIntervalCombo.setColour(juce::ComboBox::outlineColourId,     kCopperDim.withAlpha(0.5f));
+
+    m_harmIntervalCombo.onChange = [this]()
+    {
+        int id = m_harmIntervalCombo.getSelectedId();
+        if (id >= 1 && id <= numChoices)
+        {
+            m_knobHarmShift.knob.setValue(choices[id - 1].semitones, juce::sendNotificationSync);
+        }
+    };
+
+    m_knobHarmShift.knob.onValueChange = [this]()
+    {
+        int st = juce::roundToInt(m_knobHarmShift.knob.getValue());
+        for (int i = 0; i < numChoices; ++i)
+        {
+            if (choices[i].semitones == st)
+            {
+                m_harmIntervalCombo.setSelectedId(i + 1, juce::dontSendNotification);
+                return;
+            }
+        }
+        m_harmIntervalCombo.setSelectedId(0, juce::dontSendNotification);
+    };
+
     m_knobHarmDet.knob.setRange(-50.0, 50.0, 0.5);
     m_knobHarmSpread.knob.setRange(0.0, 1.0, 0.01);
     m_knobHarmMix.knob.setRange(0.0, 1.0, 0.01);
@@ -305,6 +429,8 @@ void KhaenEditor::buildCrystalPanel()
     m_crystalPanel.addAndMakeVisible(m_knobCrysFb);
     m_crystalPanel.addAndMakeVisible(m_knobCrysMix);
     m_crystalPanel.addAndMakeVisible(m_knobCrysPitch);
+    m_crystalPanel.addAndMakeVisible(m_crysIntervalLabel);
+    m_crystalPanel.addAndMakeVisible(m_crysIntervalCombo);
     m_crystalPanel.addAndMakeVisible(m_crystalMode);
     m_crystalPanel.addAndMakeVisible(m_crystalModeLabel);
     m_crystalPanel.addAndMakeVisible(m_freezeBtn);
@@ -314,14 +440,83 @@ void KhaenEditor::buildCrystalPanel()
     m_knobCrysDelay.knob.setRange(10.0, 1000.0, 1.0);
     m_knobCrysFb.knob.setRange(0.0, 0.90, 0.01);
     m_knobCrysMix.knob.setRange(0.0, 1.0, 0.01);
-    m_knobCrysPitch.knob.setRange(-24.0, 24.0, 0.5);
+    m_knobCrysPitch.knob.setRange(-24.0, 24.0, 1.0);
+
+    m_crysIntervalLabel.setText("INTERVAL", juce::dontSendNotification);
+    m_crysIntervalLabel.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+    m_crysIntervalLabel.setColour(juce::Label::textColourId, kTextDim);
+    m_crysIntervalLabel.setJustificationType(juce::Justification::centred);
+
+    struct IntervalChoice { int semitones; const char* name; };
+    static const IntervalChoice choices[] = {
+        { -24, "-2 Octaves (-24st)" },
+        { -19, "-Perfect 12th (-19st)" },
+        { -17, "-Perfect 11th (-17st)" },
+        { -16, "-Major 10th (-16st)" },
+        { -15, "-Minor 10th (-15st)" },
+        { -14, "-Major 9th (-14st)" },
+        { -12, "-1 Octave (-12st)" },
+        {  -7, "-Perfect 5th (-7st)" },
+        {  -5, "-Perfect 4th (-5st)" },
+        {  -4, "-Major 3rd (-4st)" },
+        {  -3, "-Minor 3rd (-3st)" },
+        {   0, "Unison (0st)" },
+        {   3, "+Minor 3rd (+3st)" },
+        {   4, "+Major 3rd (+4st)" },
+        {   5, "+Perfect 4th (+5st)" },
+        {   6, "+Tritone (+6st)" },
+        {   7, "+Perfect 5th (+7st)" },
+        {   8, "+Minor 6th (+8st)" },
+        {   9, "+Major 6th (+9st)" },
+        {  10, "+Minor 7th (+10st)" },
+        {  11, "+Major 7th (+11st)" },
+        {  12, "+1 Octave (+12st)" },
+        {  14, "+Major 9th (+14st)" },
+        {  15, "+Minor 10th (+15st)" },
+        {  16, "+Major 10th (+16st)" },
+        {  17, "+Perfect 11th (+17st)" },
+        {  19, "+Perfect 12th (+19st)" },
+        {  24, "+2 Octaves (+24st)" }
+    };
+    static constexpr int numChoices = static_cast<int>(sizeof(choices) / sizeof(choices[0]));
+
+    for (int i = 0; i < numChoices; ++i)
+        m_crysIntervalCombo.addItem(choices[i].name, i + 1);
+
+    m_crysIntervalCombo.setColour(juce::ComboBox::backgroundColourId,  kPanel);
+    m_crysIntervalCombo.setColour(juce::ComboBox::textColourId,        kTextPrim);
+    m_crysIntervalCombo.setColour(juce::ComboBox::arrowColourId,       kCopper);
+    m_crysIntervalCombo.setColour(juce::ComboBox::outlineColourId,     kCopperDim.withAlpha(0.5f));
+
+    m_crysIntervalCombo.onChange = [this]()
+    {
+        int id = m_crysIntervalCombo.getSelectedId();
+        if (id >= 1 && id <= numChoices)
+        {
+            m_knobCrysPitch.knob.setValue(choices[id - 1].semitones, juce::sendNotificationSync);
+        }
+    };
+
+    m_knobCrysPitch.knob.onValueChange = [this]()
+    {
+        int st = juce::roundToInt(m_knobCrysPitch.knob.getValue());
+        for (int i = 0; i < numChoices; ++i)
+        {
+            if (choices[i].semitones == st)
+            {
+                m_crysIntervalCombo.setSelectedId(i + 1, juce::dontSendNotification);
+                return;
+            }
+        }
+        m_crysIntervalCombo.setSelectedId(0, juce::dontSendNotification);
+    };
 
     m_crystalMode.addItem("Reverse Echo",    1);
     m_crystalMode.addItem("Pitch Feedback",  2);
     m_crystalMode.addItem("Glitched Freeze", 3);
 
     m_crystalModeLabel.setText("MODE", juce::dontSendNotification);
-    m_crystalModeLabel.setFont(juce::Font(10.0f, juce::Font::bold));
+    m_crystalModeLabel.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
     m_crystalModeLabel.setColour(juce::Label::textColourId, kTextDim);
     m_crystalModeLabel.setJustificationType(juce::Justification::centred);
 
@@ -455,6 +650,13 @@ void KhaenEditor::setupMidiBindings()
     m_knobDelWow.setOpenMidiManagerCallback(openDialog);
     m_knobDelFlut.setOpenMidiManagerCallback(openDialog);
 
+    // Master & Velocity
+    m_knobMasterVol.setMidiBinding(mgr, "masterVolume");
+    m_knobMasterVol.setOpenMidiManagerCallback(openDialog);
+
+    m_knobVelSens.setMidiBinding(mgr, "velocitySens");
+    m_knobVelSens.setOpenMidiManagerCallback(openDialog);
+
     // Harmonizer
     m_knobHarmShift.setMidiBinding(mgr, "harmonShift");
     m_knobHarmDet.setMidiBinding(mgr, "harmonDetune");
@@ -511,6 +713,24 @@ void KhaenEditor::toggleMidiMappingDialog()
     }
 }
 
+void KhaenEditor::toggleHelpDialog()
+{
+    if (m_helpDialog != nullptr)
+    {
+        m_helpDialog.reset();
+    }
+    else
+    {
+        m_helpDialog = std::make_unique<HelpDialog>();
+        m_helpDialog->setCloseCallback([this]() {
+            m_helpDialog.reset();
+        });
+        addAndMakeVisible(*m_helpDialog);
+        m_helpDialog->setBounds(getLocalBounds());
+        m_helpDialog->toFront(true);
+    }
+}
+
 //==============================================================================
 void KhaenEditor::switchTab (int tab)
 {
@@ -555,10 +775,44 @@ void KhaenEditor::buttonClicked (juce::Button* btn)
         m_presetBox.setSelectedItemIndex(idx);
         m_proc.loadPreset(idx);
     }
+    if (btn == &m_helpBtn)
+    {
+        toggleHelpDialog();
+    }
     if (btn == &m_midiMapBtn)
     {
         toggleMidiMappingDialog();
     }
+    if (btn == &m_tapTempoBtn)
+    {
+        m_proc.tapTempo();
+    }
+}
+
+void KhaenEditor::timerCallback()
+{
+    // Tap tempo LED pulse animation
+    float flash = m_proc.getTapFlash();
+    if (flash > 0.01f)
+    {
+        auto flashCol = kGold.withAlpha(flash * 0.8f);
+        m_tapTempoBtn.setColour(juce::TextButton::buttonColourId, kPanel.brighter(0.06f).interpolatedWith(flashCol, flash));
+    }
+    else
+    {
+        m_tapTempoBtn.setColour(juce::TextButton::buttonColourId, kPanel.brighter(0.06f));
+    }
+
+    // Dynamic BPM label update on Tap Button
+    double bpm = m_proc.getCurrentBpm();
+    juce::String bpmText = "TAP (" + juce::String(juce::roundToInt(bpm)) + " BPM)";
+    if (m_tapTempoBtn.getButtonText() != bpmText)
+        m_tapTempoBtn.setButtonText(bpmText);
+
+    // Sync toggle state: dim free time knob if synced, or enable/disable
+    bool isSynced = m_delaySyncBtn.getToggleState();
+    m_knobDelTime.setEnabled(!isSynced);
+    m_delayDivCombo.setEnabled(isSynced);
 }
 
 //==============================================================================
@@ -573,26 +827,36 @@ void KhaenEditor::resized()
 
     // ── Header ────────────────────────────────────────────────────────────────
     {
-        auto h = header.reduced(juce::roundToInt(12 * scale), juce::roundToInt(12 * scale));
+        auto h = header.reduced(juce::roundToInt(12 * scale), juce::roundToInt(6 * scale));
 
-        // Right side: MIDI LED + Label + MIDI MAP Button
+        // Right side: MIDI LED + Label + MIDI MAP Button + HELP Button
         auto midiArea = h.removeFromRight(juce::roundToInt(70 * scale));
         m_midiLed.setBounds(midiArea.removeFromRight(juce::roundToInt(20 * scale)).reduced(2));
         m_midiLabel.setBounds(midiArea);
 
-        h.removeFromRight(juce::roundToInt(10 * scale));
-        int mapBtnW = juce::roundToInt(100 * scale);
-        m_midiMapBtn.setBounds(h.removeFromRight(mapBtnW).reduced(0, juce::roundToInt(2 * scale)));
+        h.removeFromRight(juce::roundToInt(8 * scale));
+        int mapBtnW = juce::roundToInt(90 * scale);
+        m_midiMapBtn.setBounds(h.removeFromRight(mapBtnW).reduced(0, juce::roundToInt(8 * scale)));
+
+        h.removeFromRight(juce::roundToInt(8 * scale));
+        int helpBtnW = juce::roundToInt(65 * scale);
+        m_helpBtn.setBounds(h.removeFromRight(helpBtnW).reduced(0, juce::roundToInt(8 * scale)));
 
         h.removeFromRight(juce::roundToInt(16 * scale));
 
+        // Master Volume Knob in Header
+        int masterW = juce::roundToInt(75 * scale);
+        m_knobMasterVol.setBounds(h.removeFromRight(masterW));
+
+        h.removeFromRight(juce::roundToInt(20 * scale));
+
         // Left side: Preset selector + Prev/Next
         int comboW = juce::roundToInt(200 * scale);
-        m_presetBox.setBounds(h.removeFromLeft(comboW));
+        m_presetBox.setBounds(h.removeFromLeft(comboW).reduced(0, juce::roundToInt(8 * scale)));
         h.removeFromLeft(juce::roundToInt(6 * scale));
-        m_prevPreset.setBounds(h.removeFromLeft(juce::roundToInt(32 * scale)));
+        m_prevPreset.setBounds(h.removeFromLeft(juce::roundToInt(32 * scale)).reduced(0, juce::roundToInt(8 * scale)));
         h.removeFromLeft(juce::roundToInt(4 * scale));
-        m_nextPreset.setBounds(h.removeFromLeft(juce::roundToInt(32 * scale)));
+        m_nextPreset.setBounds(h.removeFromLeft(juce::roundToInt(32 * scale)).reduced(0, juce::roundToInt(8 * scale)));
     }
 
     // ── Content: Macros (Left) | Visualizer (Center) | Physics (Right) ────────
@@ -612,9 +876,9 @@ void KhaenEditor::resized()
         int  physH    = physArea.getHeight();
         
         // Calculate total content height and distribute equal padding top & bottom
-        int rowH = juce::roundToInt(90 * scale);
+        int rowH = juce::roundToInt(78 * scale);
         int comboSectionH = juce::roundToInt(115 * scale);
-        int totalContentH = (rowH * 3) + comboSectionH;
+        int totalContentH = (rowH * 4) + comboSectionH;
         int verticalPadding = std::max(0, (physH - totalContentH) / 2);
         
         physArea.removeFromTop(verticalPadding);
@@ -635,8 +899,13 @@ void KhaenEditor::resized()
         auto row3 = physArea.removeFromTop(rowH);
         m_knobVocalTract.setBounds(row3.removeFromLeft(colW).reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
         m_knobTongue.setBounds(row3.reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
+
+        // Row 4: VEL SENS & AUTO-RIFF (Dynamic velocity sensitivity & inhale riff)
+        auto row4 = physArea.removeFromTop(rowH);
+        m_knobVelSens.setBounds(row4.removeFromLeft(colW).reduced(juce::roundToInt(3 * scale), juce::roundToInt(2 * scale)));
+        m_autoRiffBtn.setBounds(row4.reduced(juce::roundToInt(4 * scale), juce::roundToInt(16 * scale)));
         
-        // Bottom: Material & Articulation Combos & Auto-Riff button (Symmetrically centered)
+        // Bottom: Material & Articulation Combos (Symmetrically centered)
         int comboW = juce::roundToInt(180 * scale);
         int marginX = (physW - comboW) / 2;
         auto comboArea = physArea.withTrimmedLeft(marginX).withTrimmedRight(marginX);
@@ -648,11 +917,6 @@ void KhaenEditor::resized()
         comboArea.removeFromTop(juce::roundToInt(3 * scale));
         m_artLabel.setBounds(comboArea.removeFromTop(juce::roundToInt(12 * scale)));
         m_artCombo.setBounds(comboArea.removeFromTop(juce::roundToInt(20 * scale)));
-        
-        comboArea.removeFromTop(juce::roundToInt(4 * scale));
-        int btnW = juce::roundToInt(130 * scale);
-        int btnMargin = (comboW - btnW) / 2;
-        m_autoRiffBtn.setBounds(comboArea.withTrimmedLeft(btnMargin).withTrimmedRight(btnMargin).removeFromTop(juce::roundToInt(20 * scale)));
 
         // Visualizer fills remaining center area
         m_waveVis.setBounds(content.reduced(juce::roundToInt(8 * scale)));
@@ -686,33 +950,56 @@ void KhaenEditor::resized()
             return juce::Rectangle<int>(cx - w / 2, centerY - h / 2, w, h);
         };
 
-        // 1. Delay panel layout (6 columns symmetrically centered)
+        // 1. Delay panel layout (6 columns: Time, Sync/Div/Tap, Feedback, Wow, Flutter, Mix+Toggles)
         {
             m_knobDelTime.setBounds(getColRect(0, 6, knobW, knobH));
-            m_knobDelFb.setBounds(getColRect(1, 6, knobW, knobH));
-            m_knobDelMix.setBounds(getColRect(2, 6, knobW, knobH));
+
+            // Column 1: Sync Toggle + Division Combo + Tap Tempo Button
+            int syncW = juce::roundToInt(135 * scale);
+            int syncH = juce::roundToInt(125 * scale);
+            auto syncRect = getColRect(1, 6, syncW, syncH);
+
+            m_delaySyncBtn.setBounds(syncRect.removeFromTop(juce::roundToInt(26 * scale)));
+            syncRect.removeFromTop(juce::roundToInt(2 * scale));
+            m_delayDivLabel.setBounds(syncRect.removeFromTop(juce::roundToInt(14 * scale)));
+            m_delayDivCombo.setBounds(syncRect.removeFromTop(juce::roundToInt(22 * scale)));
+            syncRect.removeFromTop(juce::roundToInt(6 * scale));
+            m_tapTempoBtn.setBounds(syncRect.removeFromTop(juce::roundToInt(30 * scale)));
+
+            m_knobDelFb.setBounds(getColRect(2, 6, knobW, knobH));
             m_knobDelWow.setBounds(getColRect(3, 6, knobW, knobH));
             m_knobDelFlut.setBounds(getColRect(4, 6, knobW, knobH));
 
-            // Ping-Pong toggle & Bypass toggle centered in column 5
-            int ppW = juce::roundToInt(115 * scale);
-            int ppH = juce::roundToInt(70 * scale);
-            auto col5 = getColRect(5, 6, ppW, ppH);
-            m_pingPong.setBounds(col5.removeFromTop(juce::roundToInt(32 * scale)));
-            col5.removeFromTop(juce::roundToInt(6 * scale));
-            m_delayBypassBtn.setBounds(col5.removeFromTop(juce::roundToInt(32 * scale)));
+            // Column 5: Mix Knob + Ping-Pong & Delay Bypass (stacked vertically with full width to prevent truncation)
+            int col5W = juce::roundToInt(115 * scale);
+            int col5H = knobH + juce::roundToInt(48 * scale);
+            auto col5Rect = getColRect(5, 6, col5W, col5H);
+            m_knobDelMix.setBounds(col5Rect.removeFromTop(knobH));
+            col5Rect.removeFromTop(juce::roundToInt(2 * scale));
+            m_pingPong.setBounds(col5Rect.removeFromTop(juce::roundToInt(22 * scale)));
+            col5Rect.removeFromTop(juce::roundToInt(2 * scale));
+            m_delayBypassBtn.setBounds(col5Rect.removeFromTop(juce::roundToInt(22 * scale)));
         }
 
-        // 2. Harmonizer panel layout (5 columns symmetrically centered)
+        // 2. Harmonizer panel layout (6 columns symmetrically centered)
         {
-            m_knobHarmShift.setBounds(getColRect(0, 5, knobW, knobH));
-            m_knobHarmDet.setBounds(getColRect(1, 5, knobW, knobH));
-            m_knobHarmSpread.setBounds(getColRect(2, 5, knobW, knobH));
-            m_knobHarmMix.setBounds(getColRect(3, 5, knobW, knobH));
+            m_knobHarmShift.setBounds(getColRect(0, 6, knobW, knobH));
+
+            // Column 1: Interval preset combo selector
+            int intW = juce::roundToInt(140 * scale);
+            int intH = juce::roundToInt(75 * scale);
+            auto intRect = getColRect(1, 6, intW, intH);
+            m_harmIntervalLabel.setBounds(intRect.removeFromTop(juce::roundToInt(16 * scale)));
+            intRect.removeFromTop(juce::roundToInt(4 * scale));
+            m_harmIntervalCombo.setBounds(intRect.removeFromTop(juce::roundToInt(26 * scale)));
+
+            m_knobHarmDet.setBounds(getColRect(2, 6, knobW, knobH));
+            m_knobHarmSpread.setBounds(getColRect(3, 6, knobW, knobH));
+            m_knobHarmMix.setBounds(getColRect(4, 6, knobW, knobH));
 
             int bypW = juce::roundToInt(115 * scale);
             int bypH = juce::roundToInt(32 * scale);
-            m_harmBypassBtn.setBounds(getColRect(4, 5, bypW, bypH));
+            m_harmBypassBtn.setBounds(getColRect(5, 6, bypW, bypH));
         }
 
         // 3. Crystal panel layout (6 columns symmetrically centered)
@@ -721,7 +1008,16 @@ void KhaenEditor::resized()
             m_knobCrysDelay.setBounds(getColRect(1, 6, knobW, knobH));
             m_knobCrysFb.setBounds(getColRect(2, 6, knobW, knobH));
             m_knobCrysMix.setBounds(getColRect(3, 6, knobW, knobH));
-            m_knobCrysPitch.setBounds(getColRect(4, 6, knobW, knobH));
+
+            // Column 4: Pitch Knob + Interval Selector
+            int col4W = juce::roundToInt(135 * scale);
+            int col4H = knobH + juce::roundToInt(46 * scale);
+            auto col4Rect = getColRect(4, 6, col4W, col4H);
+            m_knobCrysPitch.setBounds(col4Rect.removeFromTop(knobH));
+            col4Rect.removeFromTop(juce::roundToInt(2 * scale));
+            m_crysIntervalLabel.setBounds(col4Rect.removeFromTop(juce::roundToInt(14 * scale)));
+            col4Rect.removeFromTop(juce::roundToInt(2 * scale));
+            m_crysIntervalCombo.setBounds(col4Rect.removeFromTop(juce::roundToInt(24 * scale)));
 
             // Mode selector, Freeze button & Bypass toggle centered in column 5
             int modeW = juce::roundToInt(135 * scale);
@@ -758,6 +1054,9 @@ void KhaenEditor::resized()
 
     if (m_midiMappingDialog != nullptr)
         m_midiMappingDialog->setBounds(getLocalBounds());
+
+    if (m_helpDialog != nullptr)
+        m_helpDialog->setBounds(getLocalBounds());
 }
 
 //==============================================================================

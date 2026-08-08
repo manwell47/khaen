@@ -22,7 +22,7 @@ class Harmonizer
 public:
     struct Parameters
     {
-        float shiftSemitones = 7.f;    // [-12..+12] semitones
+        float shiftSemitones = 7.f;    // [-24..+24] semitones
         float detuneCents    = 0.f;    // [-50..+50] cents
         float stereoSpread   = 0.3f;   // [0..1]
         float mix            = 0.0f;   // [0..1] dry/wet

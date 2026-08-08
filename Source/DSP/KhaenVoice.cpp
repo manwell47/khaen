@@ -59,7 +59,9 @@ void KhaenVoice::noteStarted()
     float pressure = note.pressure.asUnsignedFloat();
     float breath = (pressure > 0.01f) ? pressure : m_noteVelocity;
         
-    m_pressureSmooth.setCurrentAndTargetValue(breath);
+    // Silky smooth breath ramp on note onset
+    m_pressureSmooth.setCurrentAndTargetValue(0.15f * breath);
+    m_pressureSmooth.setTargetValue(breath);
     m_model.setBreathPressure(breath);
 
     // MPE timbre (slide/Y) -> lip control
@@ -67,7 +69,7 @@ void KhaenVoice::noteStarted()
     m_timbreSmooth.setCurrentAndTargetValue(timbre);
     m_model.setLipControl(timbre);
 
-    m_model.noteOn(midiNote);
+    m_model.noteOn(midiNote, m_noteVelocity);
     m_model.setPitch(midiNote + pitchBendSemitones);
 }
 
