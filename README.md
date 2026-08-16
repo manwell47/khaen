@@ -6,7 +6,7 @@
 ---
 
 <p align="center">
-  <a href="https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip">
+  <a href="https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.1">
     <img src="https://img.shields.io/badge/%F0%9F%93%A5%20Direct%20Download-Khaen.exe%20%2B%20VST3%20(.zip)-d4af37?style=for-the-badge" alt="Direct Download Zip" />
   </a>
 </p>
@@ -30,7 +30,7 @@
 
 > **No coding or build tools required for music producers and musicians!**
 
-- 📦 **[Download Khaen v1.0.0 for Windows (.zip)](https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip)**: Click to download pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
+- 📦 **[Download Khaen v1.0.0 for Windows (.zip)](https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.1)**: Click to download pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
 
 ---
 
