@@ -734,9 +734,88 @@ int main()
     const auto& histBack  = testAnalyzer.getHistorySlice(SpectralAnalyzer::kDepthSlices - 1);
     std::cout << "  3D Waterfall Depth History Slices Available: [PASS]" << std::endl;
 
+    //==========================================================================
+    // Test 14: Host configuration robustness
+    // Real hosts call prepareToPlay() with very different sample rates, block
+    // sizes and channel counts (mono tracks included) and only start rendering
+    // when the first note arrives. Sweep those combinations over every preset
+    // and flag non-finite output or a block that never returns (hang).
+    //==========================================================================
+    std::cout << "\n--- Host Configuration Robustness (44.1-192 kHz, blocks 64-2048, mono/stereo) ---" << std::endl;
+    bool hostConfigPass = true;
+    {
+        const double sampleRates[]   = { 44100.0, 48000.0, 96000.0, 192000.0 };
+        const int    blockSizes[]    = { 64, 512, 2048 };
+        const int    channelCounts[] = { 1, 2 };
+        const int    numPresets      = processor.getNumPrograms();
+
+        auto allSamplesFinite = [](const juce::AudioBuffer<float>& buf)
+        {
+            for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+            {
+                const float* d = buf.getReadPointer(ch);
+                for (int i = 0; i < buf.getNumSamples(); ++i)
+                    if (! std::isfinite(d[i]))
+                        return false;
+            }
+            return true;
+        };
+
+        for (double sr : sampleRates)
+        {
+            for (int bs : blockSizes)
+            {
+                for (int numCh : channelCounts)
+                {
+                    for (int preset = 0; preset < numPresets && hostConfigPass; ++preset)
+                    {
+                        processor.loadPreset(preset);
+                        processor.prepareToPlay(sr, bs);
+
+                        juce::MidiBuffer configMidi;
+                        configMidi.addEvent(juce::MidiMessage::noteOn(1, 48, (juce::uint8)100), 0);
+                        configMidi.addEvent(juce::MidiMessage::noteOn(1, 55, (juce::uint8)100), 0);
+                        configMidi.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)100), 0);
+
+                        for (int blk = 0; blk < 10 && hostConfigPass; ++blk)
+                        {
+                            juce::AudioBuffer<float> configBuf(numCh, bs);
+                            configBuf.clear();
+
+                            const double t0 = juce::Time::getMillisecondCounterHiRes();
+                            processor.processBlock(configBuf, configMidi);
+                            const double elapsedMs = juce::Time::getMillisecondCounterHiRes() - t0;
+                            configMidi.clear();
+
+                            if (! allSamplesFinite(configBuf))
+                            {
+                                std::cout << "  [FAIL] non-finite output | sr=" << sr << " block=" << bs
+                                          << " ch=" << numCh << " preset=" << preset << std::endl;
+                                hostConfigPass = false;
+                            }
+                            else if (elapsedMs > 2000.0)
+                            {
+                                std::cout << "  [FAIL] block took " << elapsedMs << " ms (possible hang) | sr=" << sr
+                                          << " block=" << bs << " ch=" << numCh << " preset=" << preset << std::endl;
+                                hostConfigPass = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        std::cout << "  44.1-192 kHz / blocks 64-2048 / mono+stereo / all presets: "
+                  << (hostConfigPass ? "[PASS]" : "[FAIL]") << std::endl;
+
+        processor.loadPreset(0);
+        processor.prepareToPlay(44100.0, 512);
+    }
+
     bool allTestsPass = pitchRangePass && tuningPass && midiFired && chordPass && delayPass 
                         && nonZeroVisSamples > 0 && releasedRms < 0.005f && bypassPass && breathPass && bassSuctionPass 
-                        && autoRiffPass && reverbPresetsPass && keyswitchPass && artPass && midiCcPass && intervalPass && mrFftPass;
+                        && autoRiffPass && reverbPresetsPass && keyswitchPass && artPass && midiCcPass && intervalPass && mrFftPass
+                        && hostConfigPass;
 
     if (allTestsPass)
     {

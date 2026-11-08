@@ -82,7 +82,15 @@ float GranularCrystallizer::pitchShift (const std::vector<float>& buf,
                                          float pitchRatio, float phase) const
 {
     float rp  = static_cast<float>(readBase) + phase * pitchRatio;
-    while (rp < 0.f) rp += static_cast<float>(bufSize);
+
+    // Guard against NaN/inf read positions: casting those to int is undefined
+    // behaviour and can yield a negative index (out-of-bounds read -> crash).
+    if (!std::isfinite (rp))
+        rp = 0.0f;
+    else if (rp < 0.0f || rp >= static_cast<float>(bufSize))
+        rp = std::fmod (std::fmod (rp, static_cast<float>(bufSize)) + static_cast<float>(bufSize),
+                        static_cast<float>(bufSize));
+
     int   i0  = static_cast<int>(rp) % bufSize;
     int   i1  = (i0 + 1) % bufSize;
     float frac = rp - std::floor(rp);

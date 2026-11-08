@@ -6,7 +6,7 @@
 ---
 
 <p align="center">
-  <a href="https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.1">
+  <a href="https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.2">
     <img src="https://img.shields.io/badge/%F0%9F%93%A5%20Direct%20Download-Khaen.exe%20%2B%20VST3%20(.zip)-d4af37?style=for-the-badge" alt="Direct Download Zip" />
   </a>
 </p>
@@ -30,7 +30,7 @@
 
 > **No coding or build tools required for music producers and musicians!**
 
-- 📦 **[Download Khaen v1.0.0 for Windows (.zip)](https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.1)**: Click to download pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
+- 📦 **[Download Khaen v1.0.0 for Windows (.zip)](https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.2)**: Click to download pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
 
 ---
 
@@ -174,6 +174,19 @@ Build outputs:
 - **VST3**: `build\Khaen_artefacts\Release\VST3\Khaen.vst3`
 - **Standalone**: `build\Khaen_artefacts\Release\Standalone\Khaen.exe`
 - **Tests**: `build\KhaenDspTest_artefacts\Release\KhaenDspTest.exe`
+
+### CPU Compatibility (read before publishing a build)
+
+Release binaries target the plain x86-64 baseline (SSE2). Do **not** enable
+`KHAEN_NATIVE_OPT` for anything you distribute:
+
+```powershell
+# LOCAL ONLY - emits AVX2 instructions. On a CPU without AVX2
+# (Intel pre-Haswell, AMD pre-Excavator, many Atom / Celeron / Pentium parts)
+# the host dies with STATUS_ILLEGAL_INSTRUCTION (0xC000001D) the first time a
+# note is played, while the editor itself still opens normally.
+cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DKHAEN_NATIVE_OPT=ON
+```
 
 ---
 

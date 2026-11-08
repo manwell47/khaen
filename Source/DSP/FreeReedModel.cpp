@@ -392,24 +392,40 @@ float FreeReedModel::processSample()
         return 0.f;
 
     // 1. Advance continuous respiratory lung cycle
+    //
+    // Bounded phase wrap. The former "while (diff < -pi) diff += twoPi" form
+    // never terminates when diff is +/-inf (inf + twoPi == inf), which hangs
+    // the audio thread forever and makes the host appear frozen/crashed right
+    // when the first note starts.
+    auto wrapPi = [](float d) -> float
+    {
+        constexpr float pi    = juce::MathConstants<float>::pi;
+        constexpr float twoPi = juce::MathConstants<float>::twoPi;
+
+        if (!std::isfinite (d))
+            return 0.0f;
+
+        d -= twoPi * std::floor ((d + pi) / twoPi);   // -> [-pi, pi]
+        return d;
+    };
+
     if (s_hasSustainedBassNote)
     {
         // Smoothly and swiftly glide/lock to pure Inhale (Succión) at PI
         float targetPhase = juce::MathConstants<float>::pi;
-        float diff = targetPhase - m_respiratoryPhase;
-        while (diff < -juce::MathConstants<float>::pi) diff += juce::MathConstants<float>::twoPi;
-        while (diff >  juce::MathConstants<float>::pi) diff -= juce::MathConstants<float>::twoPi;
+        float diff = wrapPi (targetPhase - m_respiratoryPhase);
         m_respiratoryPhase += 0.02f * diff;
     }
     else
     {
         // Solo/Melodic: Follow global breath phase (Exhale at 0.0 or Keyswitch)
         float targetPhase = s_globalBreathPhase;
-        float diff = targetPhase - m_respiratoryPhase;
-        while (diff < -juce::MathConstants<float>::pi) diff += juce::MathConstants<float>::twoPi;
-        while (diff >  juce::MathConstants<float>::pi) diff -= juce::MathConstants<float>::twoPi;
+        float diff = wrapPi (targetPhase - m_respiratoryPhase);
         m_respiratoryPhase += 0.02f * diff;
     }
+
+    if (!std::isfinite (m_respiratoryPhase))
+        m_respiratoryPhase = 0.0f;
 
     s_globalBreathPhase = m_respiratoryPhase;
 

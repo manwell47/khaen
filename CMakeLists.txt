@@ -101,10 +101,28 @@ target_compile_definitions(Khaen
 )
 
 # ─── Compiler Optimizations ────────────────────────────────────────────────────
+#
+# IMPORTANT: distributed binaries must target the x86-64 baseline (SSE2).
+# Emitting AVX / AVX2 (or -march=native) makes the plugin trap with
+# STATUS_ILLEGAL_INSTRUCTION (0xC000001D) on CPUs that lack those extensions
+# (Intel pre-Haswell, AMD pre-Excavator, many Atom / Celeron / Pentium parts).
+# The host then dies the first time the DSP code runs, i.e. on the first note,
+# while the editor still opens fine.
+option(KHAEN_NATIVE_OPT
+    "Generate host-CPU-specific code (AVX2 / -march=native). Local builds only, NEVER for release." OFF)
+
 if(MSVC)
-    target_compile_options(Khaen PRIVATE /O2 /Oi /Ot /arch:AVX2 /fp:fast)
+    target_compile_options(Khaen PRIVATE /O2 /Oi /Ot /fp:fast)
+    if(KHAEN_NATIVE_OPT)
+        target_compile_options(Khaen PRIVATE /arch:AVX2)
+        message(STATUS "   WARNING: KHAEN_NATIVE_OPT=ON -> /arch:AVX2 (runs only on AVX2 CPUs)")
+    endif()
 else()
-    target_compile_options(Khaen PRIVATE -O3 -march=native -ffast-math -funroll-loops)
+    target_compile_options(Khaen PRIVATE -O3 -ffast-math -funroll-loops)
+    if(KHAEN_NATIVE_OPT)
+        target_compile_options(Khaen PRIVATE -march=native)
+        message(STATUS "   WARNING: KHAEN_NATIVE_OPT=ON -> -march=native (runs only on this CPU)")
+    endif()
 endif()
 
 # ─── Include Directories ───────────────────────────────────────────────────────
