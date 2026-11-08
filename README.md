@@ -6,7 +6,7 @@
 ---
 
 <p align="center">
-  <a href="https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.2">
+  <a href="https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.1_Windows.zip?v=1.3">
     <img src="https://img.shields.io/badge/%F0%9F%93%A5%20Direct%20Download-Khaen.exe%20%2B%20VST3%20(.zip)-d4af37?style=for-the-badge" alt="Direct Download Zip" />
   </a>
 </p>
@@ -30,7 +30,8 @@
 
 > **No coding or build tools required for music producers and musicians!**
 
-- 📦 **[Download Khaen v1.0.0 for Windows (.zip)](https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.0_Windows.zip?v=1.2)**: Click to download pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
+- 📦 **[Download Khaen v1.0.1 for Windows (.zip)](https://github.com/manwell47/khaen/raw/main/Khaen_v1.0.1_Windows.zip?v=1.3)**: Click to download pre-compiled `Khaen.exe` (Standalone) and `Khaen.vst3` (DAW Plugin) ready to run instantly!
+- **Release notes and version history**: see [CHANGELOG.md](CHANGELOG.md). This build is **v1.0.1**, which fixes the first-note crash on CPUs without AVX2 support.
 
 ---
 
@@ -195,8 +196,9 @@ cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DKH
 ```
 Khaen/
 ├── CMakeLists.txt              # JUCE 8 build configuration with embedded BinaryData
-├── Khaen_v1.0.0_Windows.zip    # Pre-compiled executable & VST3 package (Release v1.0.0)
+├── Khaen_v1.0.1_Windows.zip    # Pre-compiled executable & VST3 package (Release v1.0.1)
 ├── README.md                   # Complete documentation & parameter manual
+├── CHANGELOG.md                # Version history and release notes
 │
 ├── Source/
 │   ├── PluginProcessor.h/cpp   # Audio processor, APVTS parameter tree & MIDI dispatch
